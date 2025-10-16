@@ -6,6 +6,7 @@
 # - ACM証明書によるTLS 1.2以上の暗号化
 # - IPホワイトリストによるアクセス制御
 
+#tfsec:ignore:AWS005
 resource "aws_lb" "main" {
   name               = "${var.name_prefix}-basemachina-bridge"
   internal           = false
@@ -14,6 +15,7 @@ resource "aws_lb" "main" {
   subnets            = var.public_subnet_ids
 
   enable_deletion_protection = false
+  drop_invalid_header_fields = true
 
   tags = merge(
     var.tags,

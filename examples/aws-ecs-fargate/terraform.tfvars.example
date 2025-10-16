@@ -1,0 +1,104 @@
+# ========================================
+# BaseMachina Bridge デプロイ設定例
+# ========================================
+# このファイルをコピーして terraform.tfvars として保存し、
+# 実際の値を設定してください。
+#
+# コマンド: cp terraform.tfvars.example terraform.tfvars
+#
+# 注意: terraform.tfvars には機密情報が含まれるため、
+#       Gitにコミットしないでください（.gitignoreに追加済み）
+
+# ========================================
+# ネットワーク設定
+# ========================================
+
+# デプロイ先のVPC ID
+vpc_id = "vpc-0123456789abcdef0"
+
+# Bridgeタスクを配置するプライベートサブネットIDのリスト
+# 高可用性のため、複数のアベイラビリティゾーンにまたがるサブネットを指定
+private_subnet_ids = [
+  "subnet-0123456789abcdef0",  # ap-northeast-1a
+  "subnet-0123456789abcdef1",  # ap-northeast-1c
+]
+
+# ALBを配置するパブリックサブネットIDのリスト
+# 高可用性のため、複数のアベイラビリティゾーンにまたがるサブネットを指定
+public_subnet_ids = [
+  "subnet-0123456789abcdef2",  # ap-northeast-1a
+  "subnet-0123456789abcdef3",  # ap-northeast-1c
+]
+
+# ========================================
+# SSL/TLS証明書
+# ========================================
+
+# HTTPS通信用のACM証明書ARN
+# AWS Certificate Managerで事前に作成した証明書を指定
+certificate_arn = "arn:aws:acm:ap-northeast-1:123456789012:certificate/12345678-1234-1234-1234-123456789012"
+
+# ========================================
+# Bridge環境変数
+# ========================================
+
+# BaseMachinaテナントID（必須）
+tenant_id = "your-tenant-id-here"
+
+# 認可処理の公開鍵更新間隔（デフォルト: "1h"）
+fetch_interval = "1h"
+
+# 認可処理の公開鍵更新タイムアウト（デフォルト: "10s"）
+fetch_timeout = "10s"
+
+# Bridgeのリスニングポート（デフォルト: 8080）
+# 注意: ポート4321は使用できません
+port = 8080
+
+# ========================================
+# リソース設定
+# ========================================
+
+# Fargateタスクに割り当てるCPUユニット
+# 有効な値: 256, 512, 1024, 2048, 4096
+cpu = 256
+
+# Fargateタスクに割り当てるメモリ（MB）
+# CPUとメモリの組み合わせはAWSのドキュメントを参照
+# https://docs.aws.amazon.com/ja_jp/AmazonECS/latest/developerguide/task-cpu-memory-error.html
+memory = 512
+
+# 実行するタスクの数（デフォルト: 1）
+# 高可用性が必要な場合は2以上を推奨
+desired_count = 1
+
+# CloudWatch Logsの保持期間（日）
+log_retention_days = 7
+
+# ========================================
+# データベース接続（オプション）
+# ========================================
+
+# データベースセキュリティグループID
+# Bridgeからデータベースへのアクセスを許可する場合に指定
+# database_security_group_id = "sg-0123456789abcdef0"
+
+# データベースポート
+# database_security_group_id指定時に使用
+# database_port = 5432
+
+# ========================================
+# タグ付けと命名
+# ========================================
+
+# 全リソースに適用するタグ
+tags = {
+  Environment = "production"
+  Project     = "basemachina-bridge"
+  ManagedBy   = "terraform"
+  Owner       = "your-team"
+}
+
+# リソース名のプレフィックス
+# 環境やチームを識別するための接頭辞
+name_prefix = "prod"
