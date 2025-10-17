@@ -23,10 +23,10 @@
 
 ### Terraform
 
-- **バージョン**: 最新の安定版（1.x系）を推奨
+- **バージョン**: >= 1.0（ECS Fargateモジュールで要求）
 - **プロバイダー**:
-  - AWS Provider（AWSモジュール用）
-  - Google Cloud Provider（GCPモジュール用）
+  - AWS Provider: ~> 5.0（ECS Fargateモジュールで使用）
+  - Google Cloud Provider（GCPモジュール用、予定）
 
 ### クラウドプラットフォーム
 
@@ -68,7 +68,8 @@ ghcr.io/basemachina/bridge
 
 - **Terraform CLI**: v1.0以上
 - **AWS CLI**: AWSモジュール開発時（v2.x推奨）
-- **gcloud CLI**: GCPモジュール開発時
+- **Go**: v1.20以上（Terratest実行用）
+- **gcloud CLI**: GCPモジュール開発時（予定）
 - **Git**: バージョン管理
 
 ### 推奨ツール
@@ -76,7 +77,9 @@ ghcr.io/basemachina/bridge
 - **tfenv**: Terraformバージョン管理
 - **pre-commit**: コードフォーマットとリンティング
 - **tflint**: Terraformリンター
+- **tfsec**: セキュリティスキャン
 - **terraform-docs**: ドキュメント自動生成
+- **Terratest**: インフラストラクチャテストフレームワーク（Go）
 
 ### セットアップ手順
 
@@ -131,8 +134,18 @@ terraform-docs markdown table . > README.md
 # リンティング
 tflint
 
-# モジュールのテスト（例: terratest使用時）
-go test -v ./test/
+# セキュリティスキャン
+tfsec .
+
+# モジュールのテスト（Terratest）
+cd test
+go test -v ./aws/...
+
+# テスト実行に必要な環境変数
+export TEST_VPC_ID="vpc-xxxxx"
+export TEST_PUBLIC_SUBNET_IDS="subnet-xxxxx,subnet-yyyyy"
+export TEST_TENANT_ID="your-tenant-id"
+export TEST_CERTIFICATE_ARN="arn:aws:acm:region:account:certificate/xxxxx"  # オプション
 ```
 
 ## 環境変数

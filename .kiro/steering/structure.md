@@ -38,11 +38,11 @@ Kiro-style Spec Driven Developmentのための構造化されたディレクト�
 │   ├── tech.md               # 技術スタック
 │   └── structure.md          # このファイル
 └── specs/                    # 機能別の仕様書
-    └── aws-ecs-fargate-bridge/  # AWS ECS Fargate Bridge実装（実装済み）
+    └── ecs-fargate-implementation/  # AWS ECS Fargate Bridge実装（実装済み）
         ├── spec.json         # スペックメタデータ
         ├── requirements.md   # 要件定義（承認済み）
         ├── design.md         # 技術設計（承認済み）
-        └── tasks.md          # 実装タスク（94%完了）
+        └── tasks.md          # 実装タスク（100%完了）
 ```
 
 ### `modules/` ディレクトリ
@@ -53,14 +53,15 @@ Kiro-style Spec Driven Developmentのための構造化されたディレクト�
 modules/
 ├── aws/
 │   └── ecs-fargate/          # ECS Fargateモジュール（実装済み）
-│       ├── alb.tf            # Application Load Balancer設定
-│       ├── ecs.tf            # ECSクラスター・サービス・タスク定義
-│       ├── iam.tf            # IAMロール・ポリシー
+│       ├── main.tf           # 空（機能別ファイル分割パターンのため）
+│       ├── alb.tf            # Application Load Balancer、ターゲットグループ、リスナー
+│       ├── ecs.tf            # ECSクラスター、サービス、タスク定義
+│       ├── iam.tf            # IAMロール、ポリシー
 │       ├── logs.tf           # CloudWatch Logs設定
-│       ├── security_groups.tf # セキュリティグループ設定
-│       ├── variables.tf      # 入力変数
-│       ├── outputs.tf        # 出力値
-│       ├── versions.tf       # プロバイダーバージョン
+│       ├── security_groups.tf # セキュリティグループとルール（ALB/Bridge）
+│       ├── variables.tf      # 入力変数（15変数）
+│       ├── outputs.tf        # 出力値（10出力）
+│       ├── versions.tf       # プロバイダーバージョン（Terraform >= 1.0, AWS ~> 5.0）
 │       └── README.md         # モジュールドキュメント
 └── gcp/                      # GCPモジュール（予定）
     └── cloud-run/            # Cloud Runモジュール
@@ -120,22 +121,24 @@ module-name/
 ### ファイルの役割
 
 - **main.tf**: 主要なリソース定義（ECSタスク、Cloud Runサービスなど）
-- **variables.tf**: モジュールへの入力パラメータ（型、説明、デフォルト値を含む）
+  - **注**: modules/aws/ecs-fargateでは、機能別ファイル分割パターンを採用しているため、main.tfは意図的に空のまま
+- **variables.tf**: モジュールへの入力パラメータ（型、説明、デフォルト値、バリデーションを含む）
 - **outputs.tf**: モジュールからの出力値（エンドポイントURL、ARNなど）
 - **versions.tf**: Terraformおよびプロバイダーのバージョン制約
-- **locals.tf**: 複雑な計算やタグの定義に使用するローカル変数
-- **data.tf**: 既存リソースの参照（AMI、VPCなど）
+- **locals.tf**: 複雑な計算やタグの定義に使用するローカル変数（オプション）
+- **data.tf**: 既存リソースの参照（AMI、VPCなど、オプション）
 
 ## ファイル命名規則
 
 ### Terraformファイル
 
 - **スネークケース**: すべて小文字、単語間はアンダースコア（例: `ecs_fargate.tf`）
-- **機能別ファイル分割**: 大きなモジュールは機能ごとにファイルを分割
-  - `ecs.tf`: ECSクラスター、サービス、タスク定義
-  - `alb.tf`: ALB、ターゲットグループ、リスナー
-  - `security_groups.tf`: ALBとBridge用セキュリティグループ
-  - `iam.tf`: タスク実行ロール、タスクロール、IAMポリシー
+- **機能別ファイル分割**: 大きなモジュールは機能ごとにファイルを分割（modules/aws/ecs-fargateで採用）
+  - `main.tf`: 空（ファイル分割パターンのため、他ファイルに実装を配置）
+  - `ecs.tf`: ECSクラスター、サービス、タスク定義、データソース（aws_region）
+  - `alb.tf`: ALB、ターゲットグループ、HTTPリスナー（条件付き）、HTTPSリスナー（条件付き）
+  - `security_groups.tf`: ALBとBridge用セキュリティグループ、HTTP/HTTPSルール（条件付き）
+  - `iam.tf`: タスク実行ロール、タスクロール、IAMポリシーアタッチメント
   - `logs.tf`: CloudWatch Logsロググループ
 
 ### ディレクトリ
