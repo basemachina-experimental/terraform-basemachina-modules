@@ -114,6 +114,12 @@ variable "desired_count" {
   }
 }
 
+variable "assign_public_ip" {
+  description = "Assign public IP to ECS tasks (required if no NAT Gateway in private subnets)"
+  type        = bool
+  default     = false
+}
+
 variable "log_retention_days" {
   description = "CloudWatch Logs retention period (days)"
   type        = number

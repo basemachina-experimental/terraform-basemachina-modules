@@ -54,6 +54,7 @@ module "basemachina_bridge" {
   cpu                = var.cpu
   memory             = var.memory
   desired_count      = var.desired_count
+  assign_public_ip   = var.assign_public_ip
   log_retention_days = var.log_retention_days
 
   # ========================================

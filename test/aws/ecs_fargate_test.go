@@ -58,7 +58,7 @@ func TestECSFargateModule(t *testing.T) {
 
 	// Required env vars for tf vars
 	vpcID := mustGetenv(t, "TEST_VPC_ID")
-	privateSubnetIDs := getenvSlice(t, "TEST_PRIVATE_SUBNET_IDS")
+	// privateSubnetIDs := getenvSlice(t, "TEST_PRIVATE_SUBNET_IDS")
 	publicSubnetIDs := getenvSlice(t, "TEST_PUBLIC_SUBNET_IDS")
 	tenantID := mustGetenv(t, "TEST_TENANT_ID")
 
@@ -80,12 +80,14 @@ func TestECSFargateModule(t *testing.T) {
 	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
 		TerraformDir: "../../examples/aws-ecs-fargate",
 		Vars: map[string]interface{}{
-			"name_prefix":        namePrefix,
-			"vpc_id":             vpcID,
-			"private_subnet_ids": privateSubnetIDs,
+			"name_prefix": namePrefix,
+			"vpc_id":      vpcID,
+			// Use public subnets for tasks in test environment to allow ECR access without NAT Gateway
+			"private_subnet_ids": publicSubnetIDs,
 			"public_subnet_ids":  publicSubnetIDs,
 			"tenant_id":          tenantID,
 			"desired_count":      int(desiredCount),
+			"assign_public_ip":   true, // Required for test environment without NAT Gateway
 			// Optionally add more by env...
 			// "certificate_arn": ... (if TEST_CERTIFICATE_ARN set)
 		},

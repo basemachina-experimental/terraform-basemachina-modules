@@ -25,10 +25,16 @@ resource "aws_iam_role" "task_execution" {
 }
 
 # AmazonECSTaskExecutionRolePolicyマネージドポリシーのアタッチ
-# ECRイメージのpullに必要な権限を提供
 resource "aws_iam_role_policy_attachment" "task_execution" {
   role       = aws_iam_role.task_execution.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+# AmazonEC2ContainerRegistryReadOnlyマネージドポリシーのアタッチ
+# ECR (プライベート/パブリック) からイメージをpullするために必要
+resource "aws_iam_role_policy_attachment" "ecr_read_only" {
+  role       = aws_iam_role.task_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
 # CloudWatch Logsへの書き込み権限を持つインラインポリシー

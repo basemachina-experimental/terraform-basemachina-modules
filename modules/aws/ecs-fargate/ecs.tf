@@ -113,7 +113,7 @@ resource "aws_ecs_service" "bridge" {
   network_configuration {
     subnets          = var.private_subnet_ids
     security_groups  = [aws_security_group.bridge.id]
-    assign_public_ip = false
+    assign_public_ip = var.assign_public_ip
   }
 
   load_balancer {
@@ -124,6 +124,7 @@ resource "aws_ecs_service" "bridge" {
 
   depends_on = [
     aws_iam_role_policy_attachment.task_execution,
+    aws_iam_role_policy_attachment.ecr_read_only,
     aws_lb_target_group.bridge
   ]
 

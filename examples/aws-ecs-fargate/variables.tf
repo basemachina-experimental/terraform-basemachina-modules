@@ -76,6 +76,12 @@ variable "desired_count" {
   default     = 1
 }
 
+variable "assign_public_ip" {
+  description = "ECSタスクにパブリックIPを割り当てる（プライベートサブネットにNAT Gatewayがない場合に必要）"
+  type        = bool
+  default     = false
+}
+
 variable "log_retention_days" {
   description = "CloudWatch Logsの保持期間（日）"
   type        = number
