@@ -22,8 +22,9 @@ variable "public_subnet_ids" {
 # ========================================
 
 variable "certificate_arn" {
-  description = "HTTPS通信用のACM証明書ARN"
+  description = "HTTPS通信用のACM証明書ARN（オプション、未指定の場合はHTTPリスナーを使用）"
   type        = string
+  default     = null
 }
 
 # ========================================

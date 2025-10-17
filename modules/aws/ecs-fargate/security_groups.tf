@@ -18,8 +18,21 @@ resource "aws_security_group" "alb" {
   )
 }
 
-# ALBへのHTTPSインバウンドルール（BaseMachinaからのみ）
+# ALBへのHTTPインバウンドルール（テスト環境用、certificate_arnが未指定の場合のみ）
+resource "aws_security_group_rule" "alb_ingress_http" {
+  count             = var.certificate_arn == null ? 1 : 0
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "HTTP from anywhere (test only)"
+  security_group_id = aws_security_group.alb.id
+}
+
+# ALBへのHTTPSインバウンドルール（本番環境用、certificate_arnが指定された場合のみ）
 resource "aws_security_group_rule" "alb_ingress_https" {
+  count             = var.certificate_arn != null ? 1 : 0
   type              = "ingress"
   from_port         = 443
   to_port           = 443

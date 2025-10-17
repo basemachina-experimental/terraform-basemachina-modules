@@ -122,7 +122,10 @@ resource "aws_ecs_service" "bridge" {
     container_port   = var.port
   }
 
-  depends_on = [aws_lb_listener.https]
+  depends_on = [
+    aws_lb_listener.http,
+    aws_lb_listener.https
+  ]
 
   tags = merge(
     var.tags,

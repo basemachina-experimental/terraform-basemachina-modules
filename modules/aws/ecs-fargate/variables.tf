@@ -32,8 +32,9 @@ variable "public_subnet_ids" {
 # ========================================
 
 variable "certificate_arn" {
-  description = "ACM certificate ARN for HTTPS listener"
+  description = "ACM certificate ARN for HTTPS listener (optional, if not provided a self-signed certificate will be created for testing)"
   type        = string
+  default     = null
 }
 
 variable "database_security_group_id" {
