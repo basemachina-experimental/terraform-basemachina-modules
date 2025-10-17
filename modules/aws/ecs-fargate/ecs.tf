@@ -123,8 +123,8 @@ resource "aws_ecs_service" "bridge" {
   }
 
   depends_on = [
-    aws_lb_listener.http,
-    aws_lb_listener.https
+    aws_iam_role_policy_attachment.task_execution,
+    aws_lb_target_group.bridge
   ]
 
   tags = merge(

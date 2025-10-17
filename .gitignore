@@ -1,4 +1,7 @@
 .env
 terraform.tfvars
 terraform.tfstate*
-.terraform*
+.terraform/
+test/tmp/
+CLAUDE.md
+.kiro/
