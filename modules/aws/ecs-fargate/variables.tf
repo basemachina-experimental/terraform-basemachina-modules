@@ -32,7 +32,7 @@ variable "public_subnet_ids" {
 # ========================================
 
 variable "certificate_arn" {
-  description = "ACM certificate ARN for HTTPS listener (optional, if not provided a self-signed certificate will be created for testing)"
+  description = "ACM certificate ARN for HTTPS listener (optional, if not provided HTTP listener will be used)"
   type        = string
   default     = null
 }

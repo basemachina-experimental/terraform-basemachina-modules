@@ -62,6 +62,9 @@ func TestECSFargateModule(t *testing.T) {
 	publicSubnetIDs := getenvSlice(t, "TEST_PUBLIC_SUBNET_IDS")
 	tenantID := mustGetenv(t, "TEST_TENANT_ID")
 
+	// Optional: certificate ARN (if not set, HTTP listener will be used)
+	certificateArn := os.Getenv("TEST_CERTIFICATE_ARN")
+
 	// Optional: desired count
 	desiredCount := int64(1)
 	if val := os.Getenv("TEST_DESIRED_COUNT"); val != "" {
@@ -76,21 +79,27 @@ func TestECSFargateModule(t *testing.T) {
 	awsAccessKey := mustGetenv(t, "AWS_ACCESS_KEY_ID")
 	awsSecretKey := mustGetenv(t, "AWS_SECRET_ACCESS_KEY")
 
+	// Construct terraform vars
+	tfVars := map[string]interface{}{
+		"name_prefix": namePrefix,
+		"vpc_id":      vpcID,
+		// Use public subnets for tasks in test environment to allow ECR access without NAT Gateway
+		"private_subnet_ids": publicSubnetIDs,
+		"public_subnet_ids":  publicSubnetIDs,
+		"tenant_id":          tenantID,
+		"desired_count":      int(desiredCount),
+		"assign_public_ip":   true, // Required for test environment without NAT Gateway
+	}
+
+	// Add certificate_arn only if provided (otherwise HTTP listener will be used)
+	if certificateArn != "" {
+		tfVars["certificate_arn"] = certificateArn
+	}
+
 	// Construct the terraform options with default retryable errors
 	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
 		TerraformDir: "../../examples/aws-ecs-fargate",
-		Vars: map[string]interface{}{
-			"name_prefix": namePrefix,
-			"vpc_id":      vpcID,
-			// Use public subnets for tasks in test environment to allow ECR access without NAT Gateway
-			"private_subnet_ids": publicSubnetIDs,
-			"public_subnet_ids":  publicSubnetIDs,
-			"tenant_id":          tenantID,
-			"desired_count":      int(desiredCount),
-			"assign_public_ip":   true, // Required for test environment without NAT Gateway
-			// Optionally add more by env...
-			// "certificate_arn": ... (if TEST_CERTIFICATE_ARN set)
-		},
+		Vars:         tfVars,
 		EnvVars: map[string]string{
 			"AWS_ACCESS_KEY_ID":        awsAccessKey,
 			"AWS_SECRET_ACCESS_KEY":    awsSecretKey,

@@ -18,19 +18,19 @@ resource "aws_security_group" "alb" {
   )
 }
 
-# ALBへのHTTPインバウンドルール（テスト環境用、certificate_arnが未指定の場合のみ）
+# ALBへのHTTPインバウンドルール（certificate_arnがnullの場合のみ）
 resource "aws_security_group_rule" "alb_ingress_http" {
   count             = var.certificate_arn == null ? 1 : 0
   type              = "ingress"
   from_port         = 80
   to_port           = 80
   protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  description       = "HTTP from anywhere (test only)"
+  cidr_blocks       = ["34.85.43.93/32"]
+  description       = "HTTP from BaseMachina"
   security_group_id = aws_security_group.alb.id
 }
 
-# ALBへのHTTPSインバウンドルール（本番環境用、certificate_arnが指定された場合のみ）
+# ALBへのHTTPSインバウンドルール（certificate_arnが指定されている場合のみ）
 resource "aws_security_group_rule" "alb_ingress_https" {
   count             = var.certificate_arn != null ? 1 : 0
   type              = "ingress"
@@ -97,19 +97,3 @@ resource "aws_security_group_rule" "bridge_egress_all" {
   security_group_id = aws_security_group.bridge.id
 }
 
-# ========================================
-# データベースセキュリティグループルール（条件付き）
-# ========================================
-# Bridgeからデータベースへのアクセスを許可
-# var.database_security_group_idが指定された場合のみ作成
-
-resource "aws_security_group_rule" "database_ingress" {
-  count                    = var.database_security_group_id != null ? 1 : 0
-  type                     = "ingress"
-  from_port                = var.database_port
-  to_port                  = var.database_port
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.bridge.id
-  security_group_id        = var.database_security_group_id
-  description              = "Allow Bridge to access database"
-}

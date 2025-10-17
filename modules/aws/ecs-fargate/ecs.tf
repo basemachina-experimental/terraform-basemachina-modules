@@ -13,7 +13,7 @@ data "aws_region" "current" {}
 # - サーバーレス環境（インスタンス管理不要）
 
 resource "aws_ecs_cluster" "main" {
-  name = "${var.name_prefix}-basemachina-bridge"
+  name = "${var.name_prefix}basemachina-bridge"
 
   setting {
     name  = "containerInsights"
@@ -23,7 +23,7 @@ resource "aws_ecs_cluster" "main" {
   tags = merge(
     var.tags,
     {
-      Name = "${var.name_prefix}-basemachina-bridge"
+      Name = "${var.name_prefix}basemachina-bridge"
     }
   )
 }
@@ -37,7 +37,7 @@ resource "aws_ecs_cluster" "main" {
 # - CloudWatch Logsへのログ転送設定
 
 resource "aws_ecs_task_definition" "bridge" {
-  family                   = "${var.name_prefix}-basemachina-bridge"
+  family                   = "${var.name_prefix}basemachina-bridge"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = var.cpu
@@ -87,12 +87,7 @@ resource "aws_ecs_task_definition" "bridge" {
     }
   ])
 
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.name_prefix}-basemachina-bridge"
-    }
-  )
+  tags = var.tags
 }
 
 # ========================================
@@ -104,7 +99,7 @@ resource "aws_ecs_task_definition" "bridge" {
 # - プライベートサブネット配置でセキュリティ確保
 
 resource "aws_ecs_service" "bridge" {
-  name            = "${var.name_prefix}-basemachina-bridge"
+  name            = "${var.name_prefix}basemachina-bridge"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.bridge.arn
   desired_count   = var.desired_count
@@ -123,15 +118,9 @@ resource "aws_ecs_service" "bridge" {
   }
 
   depends_on = [
-    aws_iam_role_policy_attachment.task_execution,
-    aws_iam_role_policy_attachment.ecr_read_only,
-    aws_lb_target_group.bridge
+    aws_lb_listener.http,
+    aws_lb_listener.https
   ]
 
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.name_prefix}-basemachina-bridge"
-    }
-  )
+  tags = var.tags
 }

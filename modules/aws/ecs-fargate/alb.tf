@@ -8,7 +8,7 @@
 
 #tfsec:ignore:AWS005
 resource "aws_lb" "main" {
-  name               = "${var.name_prefix}-basemachina-bridge"
+  name               = "${var.name_prefix}basemachina-bridge"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
@@ -20,7 +20,7 @@ resource "aws_lb" "main" {
   tags = merge(
     var.tags,
     {
-      Name = "${var.name_prefix}-basemachina-bridge"
+      Name = "${var.name_prefix}basemachina-bridge"
     }
   )
 }
@@ -33,7 +33,7 @@ resource "aws_lb" "main" {
 # - ヘルスチェック: /okエンドポイントでHTTP 200を確認
 
 resource "aws_lb_target_group" "bridge" {
-  name        = "${var.name_prefix}-bridge-tg"
+  name        = "${var.name_prefix}bridge-tg"
   port        = var.port
   protocol    = "HTTP"
   target_type = "ip"
@@ -50,19 +50,15 @@ resource "aws_lb_target_group" "bridge" {
     matcher             = "200"
   }
 
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.name_prefix}-bridge-tg"
-    }
-  )
+  tags = var.tags
 }
 
 # ========================================
-# ALB HTTPリスナー（テスト環境用）
+# ALB HTTPリスナー
 # ========================================
-# certificate_arnが指定されていない場合、HTTP:80でリクエストを受け付ける
-# 注意: 本番環境では必ずcertificate_arnを指定してHTTPSを使用してください
+# HTTP:80でリクエストを受け付け、Bridgeターゲットグループにルーティング
+# - certificate_arnが指定されていない場合のみ作成される
+# - テスト環境での利用を想定
 
 resource "aws_lb_listener" "http" {
   count             = var.certificate_arn == null ? 1 : 0
@@ -77,18 +73,19 @@ resource "aws_lb_listener" "http" {
 }
 
 # ========================================
-# ALB HTTPSリスナー（本番環境用）
+# ALB HTTPSリスナー
 # ========================================
 # HTTPS:443でリクエストを受け付け、Bridgeターゲットグループにルーティング
-# - TLS 1.2以上の暗号化を強制
+# - TLS 1.3/1.2の暗号化を強制
 # - ACM証明書による自動TLS終端
+# - certificate_arnが指定されている場合のみ作成される
 
 resource "aws_lb_listener" "https" {
   count             = var.certificate_arn != null ? 1 : 0
   load_balancer_arn = aws_lb.main.arn
   port              = "443"
   protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-TLS-1-2-2017-01"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
   certificate_arn   = var.certificate_arn
 
   default_action {
