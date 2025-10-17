@@ -58,15 +58,26 @@ module "basemachina_bridge" {
   log_retention_days = var.log_retention_days
 
   # ========================================
-  # データベース接続（オプション）
-  # ========================================
-  database_security_group_id = var.database_security_group_id
-  database_port              = var.database_port
-
-  # ========================================
   # タグ
   # ========================================
   tags = var.tags
 
   name_prefix = var.name_prefix
 }
+
+# ========================================
+# データベース接続の例（オプション）
+# ========================================
+# モジュールのbridge_security_group_id出力値を使って、
+# 接続したいリソースのセキュリティグループルールを追加します
+#
+# 例: RDSへの接続を許可
+# resource "aws_security_group_rule" "bridge_to_rds" {
+#   type                     = "ingress"
+#   from_port                = 5432
+#   to_port                  = 5432
+#   protocol                 = "tcp"
+#   source_security_group_id = module.basemachina_bridge.bridge_security_group_id
+#   security_group_id        = var.rds_security_group_id
+#   description              = "Allow Bridge to access RDS"
+# }

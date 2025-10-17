@@ -89,22 +89,6 @@ variable "log_retention_days" {
 }
 
 # ========================================
-# データベース接続（オプション）
-# ========================================
-
-variable "database_security_group_id" {
-  description = "データベースセキュリティグループID（オプション）"
-  type        = string
-  default     = null
-}
-
-variable "database_port" {
-  description = "データベースポート（オプション、database_security_group_id指定時に必要）"
-  type        = number
-  default     = 5432
-}
-
-# ========================================
 # タグ付けと命名
 # ========================================
 

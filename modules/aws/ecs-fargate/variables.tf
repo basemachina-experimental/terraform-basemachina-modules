@@ -37,18 +37,6 @@ variable "certificate_arn" {
   default     = null
 }
 
-variable "database_security_group_id" {
-  description = "Security group ID of the database (optional)"
-  type        = string
-  default     = null
-}
-
-variable "database_port" {
-  description = "Database port (e.g., 5432 for PostgreSQL, 3306 for MySQL)"
-  type        = number
-  default     = 5432
-}
-
 # ========================================
 # Bridge環境変数
 # ========================================
