@@ -10,7 +10,7 @@
 #       Gitにコミットしないでください（.gitignoreに追加済み）
 
 # ========================================
-# ネットワーク設定
+# ネットワーク設定（必須）
 # ========================================
 
 # デプロイ先のVPC ID
@@ -23,83 +23,85 @@ private_subnet_ids = [
   "subnet-0123456789abcdef1",  # ap-northeast-1c
 ]
 
-# ALBを配置するパブリックサブネットIDのリスト
+# ALBとNAT Gatewayを配置するパブリックサブネットIDのリスト
 # 高可用性のため、複数のアベイラビリティゾーンにまたがるサブネットを指定
+# 注: このexampleでは新しいNAT Gatewayを作成します（Bridge初期化に必須、コスト: 約$32/月）
+# 既存のNAT Gatewayを使用する場合は、モジュール呼び出し時に nat_gateway_id を指定してください
 public_subnet_ids = [
   "subnet-0123456789abcdef2",  # ap-northeast-1a
   "subnet-0123456789abcdef3",  # ap-northeast-1c
 ]
 
+# 既存のNAT Gatewayを使用する場合（オプション）
+# nat_gateway_id = "nat-0123456789abcdef"
+
 # ========================================
-# SSL/TLS証明書
+# SSL/TLS証明書（必須）
 # ========================================
 
 # HTTPS通信用のACM証明書ARN
 # AWS Certificate Managerで事前に作成した証明書を指定
-# テスト環境ではコメントアウトしてHTTPで動作確認できます
 certificate_arn = "arn:aws:acm:ap-northeast-1:123456789012:certificate/12345678-1234-1234-1234-123456789012"
 
+# テスト環境向け: 自己署名証明書を自動的にACMにインポートする場合
+# 事前に scripts/generate-cert.sh を実行して証明書を生成してください
+# 本番環境では必ずfalseにしてください
+# enable_acm_import = true
+
 # ========================================
-# Bridge環境変数
+# Bridge環境変数（必須）
 # ========================================
 
-# BaseMachinaテナントID（必須）
+# BaseMachinaテナントID
 tenant_id = "your-tenant-id-here"
 
+# ========================================
+# オプション設定
+# ========================================
+
 # 認可処理の公開鍵更新間隔（デフォルト: "1h"）
-fetch_interval = "1h"
+# fetch_interval = "1h"
 
 # 認可処理の公開鍵更新タイムアウト（デフォルト: "10s"）
-fetch_timeout = "10s"
+# fetch_timeout = "10s"
 
 # Bridgeのリスニングポート（デフォルト: 8080）
 # 注意: ポート4321は使用できません
-port = 8080
+# port = 8080
 
-# ========================================
-# リソース設定
-# ========================================
-
-# Fargateタスクに割り当てるCPUユニット
+# Fargateタスクに割り当てるCPUユニット（デフォルト: 256）
 # 有効な値: 256, 512, 1024, 2048, 4096
-cpu = 256
+# cpu = 256
 
-# Fargateタスクに割り当てるメモリ（MB）
+# Fargateタスクに割り当てるメモリ（MB、デフォルト: 512）
 # CPUとメモリの組み合わせはAWSのドキュメントを参照
 # https://docs.aws.amazon.com/ja_jp/AmazonECS/latest/developerguide/task-cpu-memory-error.html
-memory = 512
+# memory = 512
 
 # 実行するタスクの数（デフォルト: 1）
 # 高可用性が必要な場合は2以上を推奨
-desired_count = 1
+# desired_count = 1
 
-# CloudWatch Logsの保持期間（日）
-log_retention_days = 7
-
-# ========================================
-# データベース接続（オプション）
-# ========================================
-
-# データベースセキュリティグループID
-# Bridgeからデータベースへのアクセスを許可する場合に指定
-# database_security_group_id = "sg-0123456789abcdef0"
-
-# データベースポート
-# database_security_group_id指定時に使用
-# database_port = 5432
-
-# ========================================
-# タグ付けと命名
-# ========================================
+# CloudWatch Logsの保持期間（日、デフォルト: 7）
+# log_retention_days = 7
 
 # 全リソースに適用するタグ
-tags = {
-  Environment = "production"
-  Project     = "basemachina-bridge"
-  ManagedBy   = "terraform"
-  Owner       = "your-team"
-}
+# tags = {
+#   Environment = "production"
+#   Project     = "basemachina-bridge"
+#   ManagedBy   = "terraform"
+#   Owner       = "your-team"
+# }
 
-# リソース名のプレフィックス
-# 環境やチームを識別するための接頭辞
-name_prefix = "prod"
+# リソース名のプレフィックス（デフォルト: "prod"）
+# name_prefix = "prod"
+
+# ========================================
+# 自動設定（変更不要）
+# ========================================
+# 以下の設定は自動的に適用されます：
+# - プライベートサブネットのみでECSタスクを実行
+# - VPCエンドポイント（ECR API, ECR Docker, S3, CloudWatch Logs）を自動作成
+# - ECRプルスルーキャッシュを使用してPublic ECRイメージをキャッシュ
+# - NAT Gateway不要、パブリックIP不要
+# - HTTPS必須（証明書ARN必須）

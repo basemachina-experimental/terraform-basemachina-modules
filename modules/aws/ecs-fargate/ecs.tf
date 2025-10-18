@@ -48,7 +48,7 @@ resource "aws_ecs_task_definition" "bridge" {
   container_definitions = jsonencode([
     {
       name  = "bridge"
-      image = "public.ecr.aws/basemachina/bridge:latest"
+      image = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com/ecr-public/basemachina/bridge:latest"
 
       portMappings = [
         {
@@ -108,7 +108,7 @@ resource "aws_ecs_service" "bridge" {
   network_configuration {
     subnets          = var.private_subnet_ids
     security_groups  = [aws_security_group.bridge.id]
-    assign_public_ip = var.assign_public_ip
+    assign_public_ip = false
   }
 
   load_balancer {
@@ -118,7 +118,6 @@ resource "aws_ecs_service" "bridge" {
   }
 
   depends_on = [
-    aws_lb_listener.http,
     aws_lb_listener.https
   ]
 

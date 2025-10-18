@@ -14,3 +14,9 @@ override.tf.json
 .terraformrc
 terraform.rc
 tmp/
+
+# Self-signed certificates (should not be committed)
+examples/aws-ecs-fargate/certs/
+*.pem
+*.key
+*.crt

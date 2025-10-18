@@ -12,6 +12,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -34,11 +38,25 @@ module "basemachina_bridge" {
   vpc_id             = var.vpc_id
   private_subnet_ids = var.private_subnet_ids
   public_subnet_ids  = var.public_subnet_ids
+  nat_gateway_id     = var.nat_gateway_id
 
   # ========================================
   # SSL/TLS証明書
   # ========================================
-  certificate_arn = var.certificate_arn
+  # ACMインポートと外部証明書ARNの両方に対応
+  # - enable_acm_import = true の場合: acm.tfで定義されたlocals.certificate_arnを使用
+  # - enable_acm_import = false の場合: var.certificate_arnを使用
+  certificate_arn = local.certificate_arn
+
+  # Ensure ACM certificate is created before module resources
+  depends_on = [
+    aws_acm_certificate.self_signed
+  ]
+
+  # ========================================
+  # セキュリティ設定
+  # ========================================
+  additional_alb_ingress_cidrs = var.additional_alb_ingress_cidrs
 
   # ========================================
   # Bridge環境変数
@@ -54,7 +72,6 @@ module "basemachina_bridge" {
   cpu                = var.cpu
   memory             = var.memory
   desired_count      = var.desired_count
-  assign_public_ip   = var.assign_public_ip
   log_retention_days = var.log_retention_days
 
   # ========================================

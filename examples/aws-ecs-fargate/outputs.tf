@@ -67,3 +67,55 @@ output "task_role_arn" {
   description = "タスクロールARN"
   value       = module.basemachina_bridge.task_role_arn
 }
+
+# ========================================
+# VPC Endpoints関連の出力
+# ========================================
+
+output "vpc_endpoint_ecr_api_id" {
+  description = "ECR API VPCエンドポイントID"
+  value       = module.basemachina_bridge.vpc_endpoint_ecr_api_id
+}
+
+output "vpc_endpoint_ecr_dkr_id" {
+  description = "ECR Docker VPCエンドポイントID"
+  value       = module.basemachina_bridge.vpc_endpoint_ecr_dkr_id
+}
+
+output "vpc_endpoint_s3_id" {
+  description = "S3 VPCエンドポイントID"
+  value       = module.basemachina_bridge.vpc_endpoint_s3_id
+}
+
+output "vpc_endpoint_logs_id" {
+  description = "CloudWatch Logs VPCエンドポイントID"
+  value       = module.basemachina_bridge.vpc_endpoint_logs_id
+}
+
+output "vpc_endpoints_security_group_id" {
+  description = "VPCエンドポイント用セキュリティグループID"
+  value       = module.basemachina_bridge.vpc_endpoints_security_group_id
+}
+
+# ========================================
+# ECR Pull Through Cache関連の出力
+# ========================================
+
+output "bridge_image_uri" {
+  description = "使用されているBridgeコンテナイメージURI"
+  value       = module.basemachina_bridge.bridge_image_uri
+}
+
+# ========================================
+# NAT Gateway関連の出力
+# ========================================
+
+output "nat_gateway_id" {
+  description = "NAT Gateway ID"
+  value       = module.basemachina_bridge.nat_gateway_id
+}
+
+output "nat_gateway_public_ip" {
+  description = "NAT GatewayのパブリックIPアドレス"
+  value       = module.basemachina_bridge.nat_gateway_public_ip
+}

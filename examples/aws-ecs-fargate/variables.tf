@@ -13,8 +13,14 @@ variable "private_subnet_ids" {
 }
 
 variable "public_subnet_ids" {
-  description = "ALBを配置するパブリックサブネットIDのリスト（複数AZ推奨）"
+  description = "ALBとNAT Gatewayを配置するパブリックサブネットIDのリスト（複数AZ推奨）"
   type        = list(string)
+}
+
+variable "nat_gateway_id" {
+  description = "既存のNAT Gateway IDを使用する場合に指定（オプション）。指定しない場合は新しいNAT Gatewayが作成されます。"
+  type        = string
+  default     = null
 }
 
 # ========================================
@@ -25,6 +31,18 @@ variable "certificate_arn" {
   description = "HTTPS通信用のACM証明書ARN（オプション、未指定の場合はHTTPリスナーを使用）"
   type        = string
   default     = null
+}
+
+variable "enable_acm_import" {
+  description = "ローカル証明書をACMにインポートする（テスト環境向け）。trueの場合、certs/ディレクトリの自己署名証明書をACMにインポートします。本番環境では使用しないでください。"
+  type        = bool
+  default     = false
+}
+
+variable "additional_alb_ingress_cidrs" {
+  description = "ALBへのHTTPSアクセスを許可する追加のCIDRブロック（テストや追加クライアント用）。BaseMachina IP (34.85.43.93/32) は常に含まれます。"
+  type        = list(string)
+  default     = []
 }
 
 # ========================================
@@ -74,12 +92,6 @@ variable "desired_count" {
   description = "実行するタスクの数"
   type        = number
   default     = 1
-}
-
-variable "assign_public_ip" {
-  description = "ECSタスクにパブリックIPを割り当てる（プライベートサブネットにNAT Gatewayがない場合に必要）"
-  type        = bool
-  default     = false
 }
 
 variable "log_retention_days" {

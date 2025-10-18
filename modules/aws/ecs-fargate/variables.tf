@@ -18,7 +18,7 @@ variable "private_subnet_ids" {
 }
 
 variable "public_subnet_ids" {
-  description = "List of public subnet IDs for ALB"
+  description = "List of public subnet IDs for ALB and NAT Gateway (if creating new NAT Gateway)"
   type        = list(string)
 
   validation {
@@ -27,14 +27,25 @@ variable "public_subnet_ids" {
   }
 }
 
+variable "nat_gateway_id" {
+  description = "Existing NAT Gateway ID to use (optional). If not specified, a new NAT Gateway will be created for Bridge."
+  type        = string
+  default     = null
+}
+
 # ========================================
 # セキュリティ関連変数
 # ========================================
 
 variable "certificate_arn" {
-  description = "ACM certificate ARN for HTTPS listener (optional, if not provided HTTP listener will be used)"
+  description = "ACM certificate ARN for HTTPS listener (required)"
   type        = string
-  default     = null
+}
+
+variable "additional_alb_ingress_cidrs" {
+  description = "Additional CIDR blocks to allow HTTPS access to ALB (for testing or additional clients). BaseMachina IP (34.85.43.93/32) is always included."
+  type        = list(string)
+  default     = []
 }
 
 # ========================================
@@ -102,12 +113,6 @@ variable "desired_count" {
   }
 }
 
-variable "assign_public_ip" {
-  description = "Assign public IP to ECS tasks (required if no NAT Gateway in private subnets)"
-  type        = bool
-  default     = false
-}
-
 variable "log_retention_days" {
   description = "CloudWatch Logs retention period (days)"
   type        = number
@@ -129,3 +134,4 @@ variable "name_prefix" {
   type        = string
   default     = ""
 }
+
