@@ -119,3 +119,77 @@ output "nat_gateway_public_ip" {
   description = "NAT GatewayのパブリックIPアドレス"
   value       = module.basemachina_bridge.nat_gateway_public_ip
 }
+
+# ========================================
+# RDS関連の出力
+# ========================================
+
+output "rds_endpoint" {
+  description = "RDS PostgreSQLインスタンスのエンドポイント"
+  value       = aws_db_instance.postgres.endpoint
+}
+
+output "rds_address" {
+  description = "RDS PostgreSQLインスタンスのアドレス（ポート番号なし）"
+  value       = aws_db_instance.postgres.address
+}
+
+output "rds_port" {
+  description = "RDS PostgreSQLインスタンスのポート番号"
+  value       = aws_db_instance.postgres.port
+}
+
+output "rds_database_name" {
+  description = "RDSデータベース名"
+  value       = aws_db_instance.postgres.db_name
+}
+
+output "rds_username" {
+  description = "RDSマスターユーザー名"
+  value       = aws_db_instance.postgres.username
+  sensitive   = true
+}
+
+output "rds_security_group_id" {
+  description = "RDSセキュリティグループID"
+  value       = aws_security_group.rds.id
+}
+
+output "rds_credentials_secret_arn" {
+  description = "RDS接続情報を格納したSecrets Manager ARN"
+  value       = aws_secretsmanager_secret.rds_credentials.arn
+}
+
+output "rds_connection_command" {
+  description = "RDSへの接続コマンド例"
+  value       = "psql -h ${aws_db_instance.postgres.address} -U ${aws_db_instance.postgres.username} -d ${aws_db_instance.postgres.db_name}"
+}
+
+# ========================================
+# Bastion Host関連の出力
+# ========================================
+
+output "bastion_instance_id" {
+  description = "BastionホストのインスタンスID"
+  value       = var.enable_bastion ? aws_instance.bastion[0].id : null
+}
+
+output "bastion_public_ip" {
+  description = "BastionホストのパブリックIPアドレス（SSH接続用）"
+  value       = var.enable_bastion ? aws_instance.bastion[0].public_ip : null
+}
+
+output "bastion_security_group_id" {
+  description = "BastionホストのセキュリティグループID"
+  value       = var.enable_bastion ? aws_security_group.bastion[0].id : null
+}
+
+output "bastion_ssh_command" {
+  description = "BastionホストへのSSH接続コマンド例（SSH公開鍵が設定されている場合）"
+  value       = var.enable_bastion && var.bastion_ssh_public_key != "" ? "ssh -i ~/.ssh/your-private-key ec2-user@${aws_instance.bastion[0].public_ip}" : "Session Manager経由でアクセスしてください"
+}
+
+output "bastion_session_manager_command" {
+  description = "BastionホストへのSession Manager接続コマンド"
+  value       = var.enable_bastion ? "aws ssm start-session --target ${aws_instance.bastion[0].id}" : null
+}

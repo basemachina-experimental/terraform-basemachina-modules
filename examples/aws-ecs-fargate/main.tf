@@ -16,6 +16,10 @@ terraform {
       source  = "hashicorp/null"
       version = "~> 3.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -83,18 +87,18 @@ module "basemachina_bridge" {
 }
 
 # ========================================
-# データベース接続の例（オプション）
+# データベース接続の例
 # ========================================
-# モジュールのbridge_security_group_id出力値を使って、
-# 接続したいリソースのセキュリティグループルールを追加します
+# このexampleでは、rds.tfでRDS PostgreSQLインスタンスを作成し、
+# Bridgeからの接続を許可するセキュリティグループルールを自動設定しています。
 #
-# 例: RDSへの接続を許可
-# resource "aws_security_group_rule" "bridge_to_rds" {
+# 独自のデータベースに接続する場合の例:
+# resource "aws_security_group_rule" "bridge_to_custom_db" {
 #   type                     = "ingress"
-#   from_port                = 5432
-#   to_port                  = 5432
+#   from_port                = 3306  # MySQLの場合
+#   to_port                  = 3306
 #   protocol                 = "tcp"
 #   source_security_group_id = module.basemachina_bridge.bridge_security_group_id
-#   security_group_id        = var.rds_security_group_id
-#   description              = "Allow Bridge to access RDS"
+#   security_group_id        = "sg-xxxxx"  # 接続先DBのセキュリティグループID
+#   description              = "Allow Bridge to access MySQL"
 # }

@@ -35,6 +35,9 @@ public_subnet_ids = [
 # 既存のNAT Gatewayを使用する場合（オプション）
 # nat_gateway_id = "nat-0123456789abcdef"
 
+# ALBへのHTTPSアクセスを許可する追加のCIDRブロック（テストや追加クライアント用）。
+# additional_alb_ingress_cidrs = ["0.0.0.0/0"]
+
 # ========================================
 # SSL/TLS証明書（必須）
 # ========================================
@@ -97,6 +100,27 @@ tenant_id = "your-tenant-id-here"
 # name_prefix = "prod"
 
 # ========================================
+# Bastion Host設定（オプション）
+# ========================================
+
+# Bastionホストを作成するかどうか（デフォルト: true）
+# プライベートサブネット内のRDSに接続する場合に有効化します
+# enable_bastion = true
+
+# BastionホストのEC2インスタンスタイプ（デフォルト: "t3.micro"）
+# bastion_instance_type = "t3.micro"
+
+# BastionホストへのSSHアクセスに使用する公開鍵
+# 未指定の場合は、Session Manager経由でのみアクセス可能
+# 例: bastion_ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQD..."
+# bastion_ssh_public_key = ""
+
+# BastionホストへのSSHアクセスを許可するCIDRブロック（デフォルト: ["0.0.0.0/0"]）
+# セキュリティ向上のため、あなたのIPアドレスのみに制限することを推奨
+# 例: bastion_allowed_ssh_cidrs = ["203.0.113.0/32"]  # あなたのパブリックIP
+# bastion_allowed_ssh_cidrs = ["0.0.0.0/0"]
+
+# ========================================
 # 自動設定（変更不要）
 # ========================================
 # 以下の設定は自動的に適用されます：
@@ -105,3 +129,5 @@ tenant_id = "your-tenant-id-here"
 # - ECRプルスルーキャッシュを使用してPublic ECRイメージをキャッシュ
 # - NAT Gateway不要、パブリックIP不要
 # - HTTPS必須（証明書ARN必須）
+# - RDS PostgreSQL 15.14インスタンス（db.t3.micro）を自動作成
+# - Bastionホスト（Amazon Linux 2023 t3.micro）を自動作成

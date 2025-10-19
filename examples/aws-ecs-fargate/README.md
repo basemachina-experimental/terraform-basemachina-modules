@@ -277,7 +277,7 @@ Terraformが自動的に証明書をACMにインポートし、ALBのHTTPSリス
 - ブラウザでアクセスすると「この接続ではプライバシーが保護されません」という警告が表示されます
 - curlコマンドでテストする場合は`-k`オプションを使用してください:
   ```bash
-  curl -k https://[ALB_DNS]/ok
+  curl -k https://$(terraform output -raw alb_dns_name)/ok
   ```
 - 本番環境では必ず信頼されたCA（Certificate Authority）から発行された証明書を使用してください
 
@@ -292,72 +292,117 @@ certificate_arn   = "arn:aws:acm:ap-northeast-1:123456789012:certificate/xxxxx"
 
 ## RDSデータベース付き環境のデプロイ
 
-この例では、PostgreSQL RDSインスタンスをシードデータ付きでデプロイすることもできます。
+この例には、PostgreSQL RDSインスタンスとBridgeからの接続設定が含まれています。
 
-### 前提条件
+### 概要
 
-- **psqlクライアント**: データベース初期化に必要です
-  ```bash
-  # macOS
-  brew install postgresql
+`rds.tf`により、以下が自動的に構成されます:
+- **RDS PostgreSQLインスタンス**: プライベートサブネットに配置
+- **セキュリティグループ**: Bridgeからの5432ポート接続を許可
+- **Secrets Manager**: データベース認証情報を安全に保存
 
-  # Ubuntu/Debian
-  sudo apt-get install postgresql-client
+**重要**: RDSインスタンスはプライベートサブネット内にあるため、ローカル環境から直接アクセスできません。データベース初期化（`scripts/init.sql`の実行）は手動で行う必要があります（後述）。
 
-  # Amazon Linux 2
-  sudo yum install postgresql
-  ```
+### ステップ1: デプロイ
 
-### ステップ1: RDS設定の有効化
-
-`terraform.tfvars`で以下を設定:
-
-```hcl
-# RDSデプロイを有効化
-enable_rds = true
-
-# データベース認証情報（必須）
-database_name     = "bridgedb"
-database_username = "dbadmin"
-database_password = "ChangeMe123!"  # 強力なパスワードを設定してください
-
-# オプション: RDS設定のカスタマイズ
-database_instance_class     = "db.t3.micro"
-database_allocated_storage  = 20
-database_engine_version     = "14.7"
-```
-
-**セキュリティ警告**:
-- terraform.tfvarsに平文パスワードを保存するのは開発環境のみにしてください
-- 本番環境ではAWS Secrets Managerまたは環境変数を使用してください
-- terraform.tfvarsをGitにコミットしないでください（.gitignoreで除外されています）
-
-### ステップ2: デプロイ
+通常通り`terraform apply`を実行するだけで、RDSインスタンスも自動的に作成されます:
 
 ```bash
 terraform apply
 ```
 
-Terraformは以下を自動的に実行します:
-1. RDS PostgreSQLインスタンスを作成
-2. セキュリティグループでBridgeからの5432ポート接続を許可
-3. データベース認証情報をAWS Secrets Managerに保存
-4. `scripts/init.sql`スクリプトを実行してシードデータを投入
+**自動構成される内容**:
+- RDS PostgreSQL 15.14インスタンス（db.t3.micro）
+- ランダム生成された32文字のマスターパスワード
+- データベース名: `bridge_example`
+- ユーザー名: `postgres`
+- 暗号化ストレージ（20GB、最大100GBまで自動拡張）
+- 7日間のバックアップ保持
+- Enhanced Monitoring有効
+- Performance Insights有効
+
+**セキュリティ**:
+- パスワードはTerraformによりランダム生成されます
+- 認証情報はAWS Secrets Managerに自動保存されます
+- RDSインスタンスはプライベートサブネットに配置され、インターネットからアクセスできません
+
+### ステップ2: Bastionホストの準備
+
+このexampleでは、Bastionホストが自動的に作成されます（`enable_bastion = true`）。BastionホストはパブリックサブネットにEC2インスタンス（Amazon Linux 2023 t3.micro）が起動され、PostgreSQL 15クライアントがプリインストールされています。
+
+#### オプションA: SSH公開鍵を使用する場合（推奨）
+
+1. SSH鍵ペアを生成（まだない場合）:
+
+```bash
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/bastion-key -N ""
+```
+
+2. `terraform.tfvars`に公開鍵を設定:
+
+```hcl
+bastion_ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQD..."  # ~/.ssh/bastion-key.pub の内容
+bastion_allowed_ssh_cidrs = ["YOUR_IP/32"]  # あなたのIPアドレスのみ許可（セキュリティ向上）
+```
+
+3. デプロイ後、SSH接続:
+
+```bash
+# BastionホストのパブリックIPを取得
+BASTION_IP=$(terraform output -raw bastion_public_ip)
+
+# SSH接続
+ssh -i ~/.ssh/bastion-key ec2-user@$BASTION_IP
+```
+
+#### オプションB: AWS Systems Manager Session Manager経由（SSH鍵不要）
+
+SSH鍵を設定せず、Session Manager経由でアクセスすることも可能です:
+
+```bash
+# BastionホストのインスタンスIDを取得
+BASTION_ID=$(terraform output -raw bastion_instance_id)
+
+# Session Manager経由で接続
+aws ssm start-session --target $BASTION_ID
+```
+
+**利点**:
+- SSH鍵の管理が不要
+- インバウンドポート22を開放する必要がない
+- CloudTrailでアクセスログが記録される
+
+### ステップ3: データベース初期化
+
+Bastionホストから`scripts/init.sql`を実行してRDSを初期化します:
+
+```bash
+# 1. Bastionホストに接続（SSH または Session Manager）
+ssh -i ~/.ssh/bastion-key ec2-user@$(terraform output -raw bastion_public_ip)
+# または
+aws ssm start-session --target $(terraform output -raw bastion_instance_id)
+
+# 2. ローカル環境でSecrets Managerから認証情報を取得
+SECRET_ARN=$(terraform output -raw rds_credentials_secret_arn)
+DB_PASSWORD=$(aws secretsmanager get-secret-value \
+  --secret-id "$SECRET_ARN" \
+  --query 'SecretString' --output text | jq -r '.password')
+
+# RDSエンドポイントを取得
+RDS_ADDRESS=$(terraform output -raw rds_address)
+
+# 3. init.sqlの内容をBastionホストに渡す
+cat scripts/init.sql | ssh -i ~/.ssh/bastion-key ec2-user@$(terraform output -raw bastion_public_ip) \
+  "PGPASSWORD='$DB_PASSWORD' psql -h $RDS_ADDRESS -U postgres -d bridge_example"
+```
 
 ### ステップ3: シードデータの確認
 
 デプロイ後、以下のコマンドでデータを確認できます:
 
 ```bash
-# RDSエンドポイントを取得
-RDS_ENDPOINT=$(terraform output -raw rds_address)
-
-# psqlで接続
-PGPASSWORD='ChangeMe123!' psql \
-  -h $RDS_ENDPOINT \
-  -U dbadmin \
-  -d bridgedb \
-  -c "SELECT * FROM users;"
+ssh -i ~/.ssh/bastion-key ec2-user@$(terraform output -raw bastion_public_ip) \
+  "PGPASSWORD='$DB_PASSWORD' psql -h $RDS_ADDRESS -U postgres -d bridge_example -c 'SELECT * FROM users;'";
 ```
 
 ### シードデータの内容
@@ -393,45 +438,37 @@ terraform output rds_port      # ポート番号
 terraform output rds_database_name  # データベース名
 ```
 
-**Bridge環境変数での設定例**:
+**Bridgeアプリケーションからの接続**:
+
+接続文字列はSecrets Managerに保存されています:
+
 ```bash
-DATABASE_URL=postgresql://dbadmin:ChangeMe123!@${RDS_ENDPOINT}/bridgedb
-```
+# 接続文字列を取得
+aws secretsmanager get-secret-value \
+  --secret-id "$SECRET_ARN" \
+  --query 'SecretString' --output text | jq -r '.connection_string'
 
-### RDSのカスタマイズ
-
-`terraform.tfvars`でRDS設定を調整できます:
-
-```hcl
-# より大きなインスタンス
-database_instance_class = "db.t3.small"
-
-# より大きなストレージ
-database_allocated_storage = 50
-
-# 異なるPostgreSQLバージョン
-database_engine_version = "15.3"
+# 出力例:
+# postgresql://postgres:RandomPassword@hostname.rds.amazonaws.com:5432/bridge_example
 ```
 
 ### シードデータのカスタマイズ
 
-`scripts/init.sql`を編集して、独自のテーブルとデータを追加できます:
+`scripts/init.sql`を編集して、独自のテーブルとデータを追加できます。現在のスクリプトは5人のユーザーを作成します。
 
-```sql
--- 追加のテーブル
-CREATE TABLE products (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(200) NOT NULL,
-    price DECIMAL(10, 2) NOT NULL
-);
+変更後は以下のコマンドで手動で再実行できます:
 
--- 追加のデータ
-INSERT INTO products (name, price) VALUES
-    ('Product A', 29.99),
-    ('Product B', 49.99);
+```bash
+PGPASSWORD="$DB_PASSWORD" psql \
+  -h "$RDS_ADDRESS" \
+  -U postgres \
+  -d bridge_example \
+  -f scripts/init.sql
 ```
 
-変更後、`terraform apply`を実行すると自動的に再実行されます（SQLファイルのハッシュが変更されたため）。
+### RDSリソースの削除
+
+RDSインスタンスは`terraform destroy`で自動的に削除されます。テスト環境のため、削除保護は無効になっており、最終スナップショットもスキップされます。
 
 ## トラブルシューティング
 

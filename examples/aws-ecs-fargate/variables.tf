@@ -119,3 +119,31 @@ variable "name_prefix" {
   type        = string
   default     = "prod"
 }
+
+# ========================================
+# Bastion Host設定
+# ========================================
+
+variable "enable_bastion" {
+  description = "Bastionホストを作成するかどうか。プライベートサブネット内のRDSに接続する場合に有効化します。"
+  type        = bool
+  default     = true
+}
+
+variable "bastion_instance_type" {
+  description = "BastionホストのEC2インスタンスタイプ"
+  type        = string
+  default     = "t3.micro"
+}
+
+variable "bastion_ssh_public_key" {
+  description = "Bastionホストへのアクセスに使用するSSH公開鍵。未指定の場合はSession Manager経由でのみアクセス可能。"
+  type        = string
+  default     = ""
+}
+
+variable "bastion_allowed_ssh_cidrs" {
+  description = "BastionホストへのSSHアクセスを許可するCIDRブロックのリスト。bastion_ssh_public_keyが指定されている場合のみ有効。"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
