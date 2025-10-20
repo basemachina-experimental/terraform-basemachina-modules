@@ -147,3 +147,29 @@ variable "bastion_allowed_ssh_cidrs" {
   type        = list(string)
   default     = ["0.0.0.0/0"]
 }
+
+# ========================================
+# ドメイン設定（必須）
+# ========================================
+
+variable "bridge_domain_name" {
+  description = <<-EOT
+    Bridgeのドメイン名（例: bridge.example.com）。
+
+    ACM証明書がDNS検証で自動発行され、DNS検証レコードとALBへのAレコードが
+    既存のRoute53 Hosted Zoneに自動的に作成されます。
+  EOT
+  type        = string
+}
+
+variable "route53_zone_id" {
+  description = <<-EOT
+    既存のRoute53 Hosted Zone ID（必須）。
+
+    ACM証明書のDNS検証レコードとALBへのAレコードが、このZoneに作成されます。
+
+    Zone IDの確認方法:
+      aws route53 list-hosted-zones --query "HostedZones[?Name=='example.com.'].Id" --output text
+  EOT
+  type        = string
+}

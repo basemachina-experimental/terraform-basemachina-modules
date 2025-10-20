@@ -45,16 +45,18 @@ module "basemachina_bridge" {
   nat_gateway_id     = var.nat_gateway_id
 
   # ========================================
-  # SSL/TLS証明書
+  # SSL/TLS証明書とドメイン設定
   # ========================================
-  # ACMインポートと外部証明書ARNの両方に対応
-  # - enable_acm_import = true の場合: acm.tfで定義されたlocals.certificate_arnを使用
-  # - enable_acm_import = false の場合: var.certificate_arnを使用
-  certificate_arn = local.certificate_arn
+  # ACM証明書はroute53_domain.tfでDNS検証により自動発行
+  certificate_arn = local.final_certificate_arn
 
-  # Ensure ACM certificate is created before module resources
+  # ドメイン設定
+  domain_name     = local.final_domain_name
+  route53_zone_id = local.final_route53_zone_id
+
+  # ACM証明書のDNS検証完了を待つ
   depends_on = [
-    aws_acm_certificate.self_signed
+    aws_acm_certificate_validation.bridge
   ]
 
   # ========================================

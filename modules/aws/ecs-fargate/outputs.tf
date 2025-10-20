@@ -131,3 +131,22 @@ output "nat_gateway_public_ip" {
   description = "NAT Gateway public IP address (null if using existing NAT Gateway)"
   value       = local.create_nat_gateway ? aws_eip.nat[0].public_ip : null
 }
+
+# ========================================
+# Route53 / DNS Outputs
+# ========================================
+
+output "route53_record_fqdn" {
+  description = "Route53レコードのFQDN"
+  value       = aws_route53_record.bridge.fqdn
+}
+
+output "domain_name" {
+  description = "設定されたカスタムドメイン名"
+  value       = var.domain_name
+}
+
+output "route53_zone_id" {
+  description = "使用されたRoute53 Hosted Zone ID"
+  value       = var.route53_zone_id
+}

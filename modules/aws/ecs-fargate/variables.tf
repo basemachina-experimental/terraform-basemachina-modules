@@ -135,3 +135,17 @@ variable "name_prefix" {
   default     = ""
 }
 
+# ========================================
+# Route53 / DNS関連変数
+# ========================================
+
+variable "domain_name" {
+  description = "Custom domain name for the Bridge (required). This domain will be used for ALB access. An A record alias to ALB will be created automatically in the specified Route53 Hosted Zone."
+  type        = string
+}
+
+variable "route53_zone_id" {
+  description = "Route53 Hosted Zone ID for DNS record creation (required). An A record alias pointing to the ALB will be created automatically in this zone."
+  type        = string
+}
+

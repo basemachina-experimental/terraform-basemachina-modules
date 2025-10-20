@@ -193,3 +193,54 @@ output "bastion_session_manager_command" {
   description = "BastionホストへのSession Manager接続コマンド"
   value       = var.enable_bastion ? "aws ssm start-session --target ${aws_instance.bastion[0].id}" : null
 }
+
+# ========================================
+# ドメインとACM証明書関連の出力
+# ========================================
+
+output "bridge_domain_name" {
+  description = "BridgeのFQDN"
+  value       = var.bridge_domain_name
+}
+
+output "bridge_url" {
+  description = "BridgeのHTTPS URL"
+  value       = "https://${var.bridge_domain_name}"
+}
+
+output "certificate_arn" {
+  description = "使用中のACM証明書ARN"
+  value       = local.final_certificate_arn
+}
+
+output "certificate_status" {
+  description = "ACM証明書のステータス"
+  value       = aws_acm_certificate.bridge.status
+}
+
+output "route53_zone_id" {
+  description = "使用されたRoute53 Hosted Zone ID"
+  value       = var.route53_zone_id
+}
+
+output "dns_setup_instructions" {
+  description = "DNS設定手順"
+  value       = <<-EOT
+
+    ========================================
+    DNS設定完了
+    ========================================
+
+    ACM証明書のDNS検証レコードとALBへのAレコードは
+    既存のRoute53 Hosted Zone (${var.route53_zone_id}) に
+    自動的に作成されました。
+
+    証明書検証の完了を確認（通常5-10分）:
+      aws acm describe-certificate --certificate-arn ${aws_acm_certificate.bridge.arn} --query 'Certificate.Status'
+
+    Bridgeにアクセス:
+      https://${var.bridge_domain_name}
+
+    ========================================
+  EOT
+}

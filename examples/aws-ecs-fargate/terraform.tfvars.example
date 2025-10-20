@@ -39,17 +39,21 @@ public_subnet_ids = [
 # additional_alb_ingress_cidrs = ["0.0.0.0/0"]
 
 # ========================================
-# SSL/TLS証明書（必須）
+# ドメイン設定（必須）
 # ========================================
 
-# HTTPS通信用のACM証明書ARN
-# AWS Certificate Managerで事前に作成した証明書を指定
-certificate_arn = "arn:aws:acm:ap-northeast-1:123456789012:certificate/12345678-1234-1234-1234-123456789012"
+# Bridgeのドメイン名（例: bridge.example.com）
+# ACM証明書がDNS検証で自動発行され、DNS検証レコードとALBへのAレコードが
+# 既存のRoute53 Hosted Zoneに自動的に作成されます。
+bridge_domain_name = "bridge.example.com"
 
-# テスト環境向け: 自己署名証明書を自動的にACMにインポートする場合
-# 事前に scripts/generate-cert.sh を実行して証明書を生成してください
-# 本番環境では必ずfalseにしてください
-# enable_acm_import = true
+# 既存のRoute53 Hosted Zone ID（必須）
+# ACM証明書のDNS検証レコードとALBへのAレコードが、このZoneに作成されます。
+#
+# Zone IDの確認方法:
+#   aws route53 list-hosted-zones --query "HostedZones[?Name=='example.com.'].Id" --output text
+#
+route53_zone_id = "Z1234567890ABC"
 
 # ========================================
 # Bridge環境変数（必須）
@@ -119,6 +123,7 @@ tenant_id = "your-tenant-id-here"
 # セキュリティ向上のため、あなたのIPアドレスのみに制限することを推奨
 # 例: bastion_allowed_ssh_cidrs = ["203.0.113.0/32"]  # あなたのパブリックIP
 # bastion_allowed_ssh_cidrs = ["0.0.0.0/0"]
+
 
 # ========================================
 # 自動設定（変更不要）

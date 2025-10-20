@@ -290,6 +290,108 @@ enable_acm_import = false  # デフォルト
 certificate_arn   = "arn:aws:acm:ap-northeast-1:123456789012:certificate/xxxxx"
 ```
 
+## カスタムドメインとACM証明書の自動発行（推奨）
+
+動作確認で信頼された証明書が必要な場合、カスタムドメインを設定してACM証明書をDNS検証で自動発行できます。
+
+### 概要
+
+以下が自動的に構成されます:
+- **ACM証明書**: DNS検証による信頼された証明書の自動発行
+- **DNS検証レコード**: 既存のRoute53 Hosted Zoneに自動作成
+- **ALBドメイン紐付け**: 指定したドメインでBridgeにアクセス可能
+
+### 前提条件
+
+- Route53 Hosted Zoneを事前に作成済み
+- ドメインを取得済み（Route53、お名前.com、Square Space、GoDaddy、Namecheap等）
+
+### ステップ1: Route53 Hosted Zoneの準備
+
+既にHosted Zoneがある場合はスキップしてください。
+
+```bash
+# 新しいHosted Zoneを作成
+aws route53 create-hosted-zone \
+  --name example.com \
+  --caller-reference $(date +%s)
+
+# Zone IDを確認
+aws route53 list-hosted-zones \
+  --query "HostedZones[?Name=='example.com.'].Id" \
+  --output text
+```
+
+**外部レジストラでドメインを取得している場合**:
+
+1. 上記コマンドで作成されたHosted Zoneのネームサーバーを取得:
+   ```bash
+   aws route53 get-hosted-zone --id Z1234567890ABC \
+     --query "DelegationSet.NameServers"
+   ```
+
+2. 外部レジストラ（お名前.com、Squarespace等）でネームサーバーをRoute53のNSに変更
+
+3. DNS伝播を待つ（最大48時間、通常は数時間）
+
+### ステップ2: terraform.tfvarsで設定
+
+```hcl
+# ドメイン設定（必須）
+bridge_domain_name = "bridge.example.com"
+route53_zone_id    = "Z1234567890ABC"  # ステップ1で取得したZone ID
+
+# 他の必須設定
+vpc_id             = "vpc-xxxxx"
+private_subnet_ids = ["subnet-xxx", "subnet-yyy"]
+public_subnet_ids  = ["subnet-aaa", "subnet-bbb"]
+tenant_id          = "your-tenant-id"
+```
+
+### ステップ3: デプロイ
+
+```bash
+terraform apply
+```
+
+デプロイ完了後、ACM証明書のDNS検証レコードとALBへのAレコードが自動的にRoute53に作成されます。
+証明書の検証は通常5-10分で完了します。
+
+### ステップ4: 検証完了の確認
+
+```bash
+# 証明書ステータスを確認
+aws acm describe-certificate \
+  --certificate-arn $(terraform output -raw certificate_arn) \
+  --query 'Certificate.Status'
+
+# 出力: "ISSUED" になれば完了
+```
+
+### ステップ5: Bridgeにアクセス
+
+```bash
+# BridgeのURLを取得
+terraform output bridge_url
+
+# アクセステスト
+curl https://bridge.example.com/ok
+```
+
+### メリット
+
+- **信頼された証明書**: Let's Encryptスタイルの自動DNS検証
+- **証明書エラーなし**: ブラウザ・ライブラリで警告が出ない
+- **自動更新**: ACMが証明書を自動的に更新
+- **本番環境と同じ**: HTTPS環境で正確にテスト可能
+- **完全自動化**: DNS検証レコードとALBレコードが自動作成
+
+### コスト
+
+- Route53 Hosted Zone: 約$0.50/月
+- ACM証明書: 無料
+- DNS クエリ料金: 最初の10億クエリで $0.40
+
 ## RDSデータベース付き環境のデプロイ
 
 この例には、PostgreSQL RDSインスタンスとBridgeからの接続設定が含まれています。
