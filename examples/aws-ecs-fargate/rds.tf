@@ -20,6 +20,10 @@ resource "aws_security_group" "rds" {
       Name = "${var.name_prefix}-rds"
     }
   )
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # BridgeからのPostgreSQL接続を許可
@@ -61,6 +65,10 @@ resource "aws_db_subnet_group" "main" {
       Name = "${var.name_prefix}-rds-subnet-group"
     }
   )
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # ========================================
@@ -131,6 +139,13 @@ resource "aws_db_instance" "postgres" {
       Name = "${var.name_prefix}-bridge-example-postgres"
     }
   )
+
+  # セキュリティグループとSubnet Groupへの依存関係を明示
+  depends_on = [
+    aws_security_group_rule.rds_ingress_from_bridge,
+    aws_security_group_rule.rds_egress_all,
+    aws_db_subnet_group.main
+  ]
 }
 
 # ========================================

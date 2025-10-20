@@ -1,7 +1,6 @@
 package test
 
 import (
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -59,7 +58,7 @@ func TestECSFargateModule(t *testing.T) {
 		awsRegion = "ap-northeast-1"
 	}
 
-	uniqueID := random.UniqueId()
+	uniqueID := strings.ToLower(random.UniqueId())
 	namePrefix := fmt.Sprintf("test-%s", uniqueID)
 
 	// Required env vars for tf vars
@@ -68,12 +67,12 @@ func TestECSFargateModule(t *testing.T) {
 	publicSubnetIDs := getenvSlice(t, "TEST_PUBLIC_SUBNET_IDS")
 	tenantID := mustGetenv(t, "TEST_TENANT_ID")
 
-	// Certificate configuration:
-	// 1. If TEST_CERTIFICATE_ARN is set, use that certificate
-	// 2. If TEST_ENABLE_ACM_IMPORT is "true", generate self-signed cert and import to ACM
-	// 3. Otherwise, use HTTP listener (no certificate)
-	certificateArn := os.Getenv("TEST_CERTIFICATE_ARN")
-	enableACMImport := os.Getenv("TEST_ENABLE_ACM_IMPORT") == "true"
+	// Domain configuration (required):
+	// - TEST_BRIDGE_DOMAIN_NAME: Domain name for Bridge (e.g., bridge-test.example.com)
+	// - TEST_ROUTE53_ZONE_ID: Existing Route53 Hosted Zone ID for the domain
+	// ACM certificate will be automatically issued via DNS validation
+	bridgeDomainName := mustGetenv(t, "TEST_BRIDGE_DOMAIN_NAME")
+	route53ZoneID := mustGetenv(t, "TEST_ROUTE53_ZONE_ID")
 
 	// Optional: desired count
 	desiredCount := int64(1)
@@ -88,13 +87,6 @@ func TestECSFargateModule(t *testing.T) {
 	// AWS creds from env
 	awsAccessKey := mustGetenv(t, "AWS_ACCESS_KEY_ID")
 	awsSecretKey := mustGetenv(t, "AWS_SECRET_ACCESS_KEY")
-
-	// Generate self-signed certificate if TEST_ENABLE_ACM_IMPORT is true
-	if enableACMImport && certificateArn == "" {
-		t.Log("Generating self-signed certificate for ACM import...")
-		err := generateSelfSignedCertificate(t)
-		require.NoError(t, err, "Failed to generate self-signed certificate")
-	}
 
 	// Construct terraform vars
 	// Network access configuration:
@@ -129,6 +121,8 @@ func TestECSFargateModule(t *testing.T) {
 		"public_subnet_ids":  publicSubnetIDs,
 		"tenant_id":          tenantID,
 		"desired_count":      int(desiredCount),
+		"bridge_domain_name": bridgeDomainName,
+		"route53_zone_id":    route53ZoneID,
 	}
 
 	// Allow test environment to access ALB
@@ -136,17 +130,9 @@ func TestECSFargateModule(t *testing.T) {
 	// Production deployments should restrict this to specific IPs
 	tfVars["additional_alb_ingress_cidrs"] = []string{"0.0.0.0/0"}
 	t.Log("Allowing ALB access from all IPs (0.0.0.0/0) for testing")
-
-	// Certificate configuration:
-	// - If TEST_CERTIFICATE_ARN is provided, use external certificate
-	// - If TEST_ENABLE_ACM_IMPORT is true, enable ACM import (self-signed cert)
-	// - Otherwise, no certificate (HTTP listener)
-	// Note: enable_https is automatically determined by the example's local.has_certificate
-	if certificateArn != "" {
-		tfVars["certificate_arn"] = certificateArn
-	} else if enableACMImport {
-		tfVars["enable_acm_import"] = true
-	}
+	t.Logf("Bridge domain: %s", bridgeDomainName)
+	t.Logf("Route53 Zone ID: %s", route53ZoneID)
+	t.Log("ACM certificate will be automatically issued via DNS validation")
 
 	// Construct the terraform options with default retryable errors
 	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
@@ -170,6 +156,9 @@ func TestECSFargateModule(t *testing.T) {
 
 	// Clean up any existing S3 VPC endpoints in the test VPC to avoid conflicts
 	cleanupExistingS3Endpoints(t, ec2Client, vpcID, namePrefix)
+
+	// Verify Route53 zone before starting
+	verifyRoute53Zone(t, route53ZoneID, bridgeDomainName)
 
 	defer terraform.Destroy(t, terraformOptions)
 	terraform.InitAndApply(t, terraformOptions)
@@ -505,34 +494,28 @@ func TestECSFargateModule(t *testing.T) {
 		time.Sleep(timeBetweenRetries)
 	}
 
-	// HTTPS health check test (if certificate is configured)
-	if certificateArn != "" || enableACMImport {
-		t.Log("Certificate configured, testing HTTPS health check endpoint...")
-		testHTTPSHealthCheck(t, terraformOptions)
-	} else {
-		t.Log("No certificate configured, skipping HTTPS health check test")
-	}
+	// HTTPS health check test
+	// ACM certificate is automatically issued via DNS validation
+	t.Log("Testing HTTPS health check endpoint (ACM certificate auto-issued via DNS validation)...")
+	testHTTPSHealthCheck(t, terraformOptions, bridgeDomainName)
 
 	t.Log("All tests passed successfully!")
 }
 
 // testHTTPSHealthCheck tests HTTPS endpoint health check
-// This function verifies that the ALB's HTTPS endpoint is accessible
+// This function verifies that the Bridge's HTTPS endpoint is accessible via the custom domain
 // and returns a 200 OK response from the Bridge health check endpoint.
-// It uses InsecureSkipVerify to allow self-signed certificates.
-func testHTTPSHealthCheck(t *testing.T, terraformOptions *terraform.Options) {
-	albDNSName := terraform.Output(t, terraformOptions, "alb_dns_name")
-	healthCheckURL := fmt.Sprintf("https://%s/ok", albDNSName)
+// Note: ACM certificate is automatically issued via DNS validation, which may take 5-10 minutes.
+func testHTTPSHealthCheck(t *testing.T, terraformOptions *terraform.Options, domainName string) {
+	healthCheckURL := fmt.Sprintf("https://%s/ok", domainName)
 
 	t.Logf("Testing HTTPS health check endpoint: %s", healthCheckURL)
+	t.Log("Note: First-time DNS validation may take 5-10 minutes for ACM certificate issuance")
 
-	// Create HTTP client with TLS verification skip (for self-signed certs)
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
+	// Create HTTP client with default TLS configuration
+	// ACM certificates are trusted by default
 	client := &http.Client{
-		Transport: tr,
-		Timeout:   60 * time.Second, // Increased timeout for Bridge initialization
+		Timeout: 60 * time.Second, // Increased timeout for Bridge initialization and DNS propagation
 	}
 
 	maxRetries := 60 // 10 minutes with 10s interval (Bridge may need time to initialize)
@@ -568,25 +551,6 @@ func testHTTPSHealthCheck(t *testing.T, terraformOptions *terraform.Options) {
 
 		time.Sleep(timeBetweenRetries)
 	}
-}
-
-// generateSelfSignedCertificate generates a self-signed certificate for testing
-// by running the generate-cert.sh script in the examples/aws-ecs-fargate directory.
-// The -f flag forces overwrite of existing certificates without prompting.
-func generateSelfSignedCertificate(t *testing.T) error {
-	scriptPath := "../../examples/aws-ecs-fargate/scripts/generate-cert.sh"
-
-	// Execute the certificate generation script with -f (force) flag
-	// to avoid interactive prompt when certificates already exist
-	cmd := exec.Command("bash", scriptPath, "-f")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Logf("Certificate generation output: %s", string(output))
-		return fmt.Errorf("failed to generate certificate: %w", err)
-	}
-
-	t.Logf("Successfully generated self-signed certificate: %s", string(output))
-	return nil
 }
 
 // diagnoseNetworkConfiguration checks and logs network configuration details
@@ -918,7 +882,7 @@ func diagnoseContainerLogs(t *testing.T, sess *session.Session, region, logGroup
 
 		// Check if we've received all events
 		if logEventsResult.NextForwardToken == nil ||
-		   aws.StringValue(logEventsResult.NextForwardToken) == aws.StringValue(getLogEventsInput.NextToken) {
+			aws.StringValue(logEventsResult.NextForwardToken) == aws.StringValue(getLogEventsInput.NextToken) {
 			break
 		}
 
@@ -1167,4 +1131,57 @@ func cleanupExistingS3Endpoints(t *testing.T, ec2Client *ec2.EC2, vpcID string, 
 			time.Sleep(5 * time.Second)
 		}
 	}
+}
+
+// verifyRoute53Zone verifies that the Route53 zone exists and the domain matches
+func verifyRoute53Zone(t *testing.T, zoneID, domainName string) {
+	t.Log("=== ROUTE53 ZONE VERIFICATION ===")
+	t.Logf("Verifying Route53 zone: %s", zoneID)
+	t.Logf("Domain name: %s", domainName)
+
+	// Get hosted zone details
+	cmd := exec.Command("aws", "route53", "get-hosted-zone",
+		"--id", zoneID,
+		"--query", "HostedZone.{Name:Name,Id:Id,ResourceRecordSetCount:ResourceRecordSetCount}",
+		"--output", "json")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Logf("ERROR: Failed to get hosted zone: %v", err)
+		t.Logf("Output: %s", string(output))
+		t.Fatalf("Route53 zone %s not found or inaccessible", zoneID)
+	}
+
+	t.Logf("Zone details: %s", string(output))
+
+	// Extract parent domain from the full domain name
+	// e.g., bridge.example.com -> example.com
+	parts := strings.Split(domainName, ".")
+	if len(parts) < 2 {
+		t.Fatalf("Invalid domain name: %s", domainName)
+	}
+
+	// Get the parent domain (last two parts)
+	parentDomain := strings.Join(parts[len(parts)-2:], ".")
+
+	t.Logf("Parent domain: %s", parentDomain)
+	t.Log("Note: The domain should be a subdomain of the hosted zone")
+
+	// List a few records to confirm zone is accessible
+	listCmd := exec.Command("aws", "route53", "list-resource-record-sets",
+		"--hosted-zone-id", zoneID,
+		"--max-items", "5",
+		"--query", "ResourceRecordSets[*].{Name:Name,Type:Type}",
+		"--output", "table")
+
+	listOutput, err := listCmd.CombinedOutput()
+	if err != nil {
+		t.Logf("Warning: Failed to list records: %v", err)
+	} else {
+		t.Log("Sample records in zone:")
+		t.Log(string(listOutput))
+	}
+
+	t.Log("✓ Route53 zone verification complete")
+	t.Log("================================")
 }
