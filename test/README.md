@@ -335,9 +335,438 @@ GitHub ActionsなどのCI/CDパイプラインで実行する場合：
 
 7. **テスト失敗時**: ログを確認してトラブルシューティングを行ってください
 
+## GCP Cloud Runテスト
+
+GCP Cloud Runモジュールの統合テストです。[Terratest](https://terratest.gruntwork.io/)を使用して実装されており、実際のGCPリソースをデプロイして検証します。
+
+### テスト内容
+
+このテストスイートは以下を検証します：
+
+1. **Cloud Run Service検証**
+   - Cloud Runサービスの存在確認
+   - 環境変数の設定確認（FETCH_INTERVAL、FETCH_TIMEOUT、PORT、TENANT_ID）
+   - リソース制限の確認（CPU、メモリ）
+   - Ingress設定の確認（内部ロードバランサーのみ）
+
+2. **HTTPS疎通とヘルスチェック**
+   - `/ok`エンドポイントへのHTTPSリクエスト
+   - HTTPステータスコード200の確認
+   - レスポンスボディの検証
+   - SSL証明書の有効性確認
+   - SSL証明書発行とDNS伝播の待機（最大20分）
+
+3. **Cloud SQL接続テスト**
+   - Cloud SQLインスタンスの存在確認
+   - プライベートIP設定の検証
+   - パブリックIP無効化の確認
+   - バックアップ設定の検証（point-in-time recovery）
+
+4. **DNS解決とLoad Balancerテスト**
+   - DNSルックアップによるAレコード検証
+   - Load Balancer IPアドレスとの一致確認
+   - Cloud Armorアクセス制御の動作確認
+
+### GCPテスト前提条件
+
+#### 1. GCPプロジェクト
+
+有効なGCPプロジェクトと以下の有効化されたAPI：
+
+```bash
+gcloud services enable run.googleapis.com
+gcloud services enable compute.googleapis.com
+gcloud services enable sqladmin.googleapis.com
+gcloud services enable servicenetworking.googleapis.com
+gcloud services enable dns.googleapis.com  # DNS統合を使用する場合
+```
+
+#### 2. 認証情報
+
+GCPへの認証を設定します：
+
+```bash
+# サービスアカウントを使用する場合
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account-key.json"
+
+# またはgcloud CLIで認証
+gcloud auth application-default login
+```
+
+サービスアカウントには以下の権限が必要です：
+- Cloud Run Admin
+- Compute Admin
+- Cloud SQL Admin
+- Service Networking Admin
+- DNS Administrator（DNS統合を使用する場合）
+
+#### 3. Cloud DNS Managed Zone（オプション）
+
+HTTPS/DNSテストを実行する場合、事前にCloud DNS Managed Zoneを作成してください：
+
+```bash
+gcloud dns managed-zones create example-com \
+  --dns-name="example.com." \
+  --description="Test domain"
+```
+
+### GCP環境変数
+
+#### 必須環境変数
+
+| 変数名 | 説明 | 例 |
+|--------|------|-----|
+| `TEST_GCP_PROJECT_ID` | テスト用のGCPプロジェクトID | `my-test-project` |
+| `TEST_TENANT_ID` | BaseMachinaテナントID | `tenant-123` |
+
+#### オプション環境変数
+
+| 変数名 | 説明 | デフォルト | 例 |
+|--------|------|-----------|-----|
+| `TEST_GCP_REGION` | GCPリージョン | `asia-northeast1` | `us-central1` |
+| `TEST_DOMAIN_NAME` | カスタムドメイン名（HTTPS/DNSテスト用） | なし | `bridge-test.example.com` |
+| `TEST_DNS_ZONE_NAME` | Cloud DNS Managed Zone名 | なし | `example-com` |
+
+#### 環境変数設定例
+
+**HTTPのみのテスト（最小構成）**:
+
+```bash
+export TEST_GCP_PROJECT_ID="my-test-project"
+export TEST_TENANT_ID="tenant-123"
+export TEST_GCP_REGION="asia-northeast1"
+```
+
+**HTTPS/DNSを含む完全なテスト**:
+
+```bash
+export TEST_GCP_PROJECT_ID="my-test-project"
+export TEST_TENANT_ID="tenant-123"
+export TEST_GCP_REGION="asia-northeast1"
+export TEST_DOMAIN_NAME="bridge-test.example.com"
+export TEST_DNS_ZONE_NAME="example-com"
+```
+
+### GCPテスト実行手順
+
+#### 1. 環境変数の設定
+
+上記の必須環境変数を設定してください。
+
+#### 2. テストの実行
+
+プロジェクトルートの`test`ディレクトリから実行します：
+
+```bash
+cd test
+go test -v ./gcp -timeout 60m
+```
+
+**注意**: テストには最大60分かかる場合があります（SSL証明書のプロビジョニング、DNS伝播、リソース作成を含む）。
+
+#### 3. 特定のテストのみ実行
+
+```bash
+# Cloud Runサービス検証のみ
+go test -v ./gcp -run TestCloudRunModule/CloudRunServiceExists -timeout 30m
+
+# HTTPS疎通テストのみ
+go test -v ./gcp -run TestCloudRunModule/HTTPSHealthCheck -timeout 30m
+
+# Cloud SQL接続テストのみ
+go test -v ./gcp -run TestCloudRunModule/CloudSQLInstanceExists -timeout 30m
+
+# DNS解決テストのみ
+go test -v ./gcp -run TestCloudRunModule/DNSResolutionAndLoadBalancer -timeout 30m
+```
+
+### GCPテスト実行時の注意事項
+
+#### タイムアウト
+
+- **SSL証明書プロビジョニング**: 最大15分
+- **DNS伝播**: 最大5分
+- **Cloud SQLインスタンス作成**: 最大10分
+- **terraform apply**: 全体で15-20分
+
+合計で最大60分のタイムアウトを推奨します。
+
+#### リソースクリーンアップ
+
+テストは`defer terraform.Destroy(t, terraformOptions)`を使用して、自動的にリソースをクリーンアップします。ただし、VPC Peering削除の既知の問題により、terraform destroyが失敗する場合があります。
+
+**推奨されるクリーンアップ方法（最速）**:
+
+```bash
+cd examples/gcp-cloud-run
+./scripts/quick-cleanup.sh YOUR_PROJECT_ID basemachina-bridge-example
+```
+
+このスクリプトは：
+1. まず`terraform destroy`を試行
+2. 失敗した場合、VPCネットワークを直接削除（VPC Peeringも一緒に削除される）
+3. 実行時間: 約1-2分
+
+**完全なクリーンアップ（すべてのリソースを確認）**:
+
+```bash
+cd examples/gcp-cloud-run
+./scripts/cleanup.sh YOUR_PROJECT_ID basemachina-bridge-example
+```
+
+このスクリプトは以下を順番に削除します（時間がかかります）：
+1. Cloud Run サービス
+2. Cloud SQL インスタンス（最大10分）
+3. VPC Peering 接続
+4. Load Balancer リソース
+5. VPC ネットワークとサブネット
+
+**Terraformによるクリーンアップ**:
+
+```bash
+cd examples/gcp-cloud-run
+terraform destroy
+```
+
+**注意**: terraform destroyはVPC Peering削除エラーで失敗する可能性があります。その場合は上記のquick-cleanup.shスクリプトを使用してください。
+
+**手動クリーンアップ（GCPコンソール）**:
+
+GCPコンソールから以下のリソースを手動で削除：
+- Cloud Runサービス: `bridge-test-*` または `basemachina-bridge-example`
+- Cloud SQLインスタンス: `bridge-test-*-db-*` または `basemachina-bridge-example-db-*`
+- Load Balancer関連リソース
+- VPC ネットワーク: `bridge-test-*-vpc` または `basemachina-bridge-example-vpc`
+
+#### コスト
+
+テストは実際のGCPリソースを作成するため、以下のコストが発生します：
+
+- Cloud Run: 実行時間に応じた課金（無料枠あり）
+- Cloud SQL: インスタンス実行時間（db-f1-micro: 約$10/月）
+- Cloud Load Balancer: 転送量に応じた課金
+- VPC Egress: データ転送量
+
+テスト実行時間は通常30-60分で、コストは$1-5程度です。
+
+### GCPトラブルシューティング
+
+#### SSL証明書のプロビジョニングが完了しない
+
+**症状**: `HTTPSHealthCheck`テストが20分後にタイムアウト
+
+**原因**:
+- DNSレコードが正しく設定されていない
+- DNS Managed Zoneが存在しない
+- ドメイン名のネームサーバーがCloud DNSを指していない
+
+**解決方法**:
+1. Cloud DNS Managed Zoneの存在確認:
+   ```bash
+   gcloud dns managed-zones describe example-com
+   ```
+
+2. ネームサーバーの確認:
+   ```bash
+   gcloud dns managed-zones describe example-com --format="value(nameServers)"
+   ```
+
+3. ドメインレジストラで、上記のネームサーバーを設定
+
+4. DNSレコードの確認:
+   ```bash
+   dig +short bridge-test.example.com
+   ```
+
+#### Cloud SQLインスタンス作成エラー
+
+**症状**: `Error creating sql database instance`
+
+**原因**:
+- Service Networking APIが有効化されていない
+- VPCピアリング用のIPアドレス範囲が不足
+
+**解決方法**:
+1. Service Networking APIの有効化:
+   ```bash
+   gcloud services enable servicenetworking.googleapis.com
+   ```
+
+2. プロジェクトのクォータ確認:
+   ```bash
+   gcloud compute project-info describe --project=PROJECT_ID
+   ```
+
+#### VPCピアリング接続エラー
+
+**症状**: `Error creating service networking connection`
+
+**原因**:
+- 既存のVPCピアリング接続と競合
+- IPアドレス範囲の重複
+
+**解決方法**:
+1. 既存のピアリング接続を確認:
+   ```bash
+   gcloud services vpc-peerings list --service=servicenetworking.googleapis.com
+   ```
+
+2. 競合する接続を削除:
+   ```bash
+   gcloud services vpc-peerings delete \
+     --service=servicenetworking.googleapis.com \
+     --network=NETWORK_NAME
+   ```
+
+#### VPC Peering削除エラー（terraform destroy時）
+
+**症状**: `Error: Unable to remove Service Networking Connection, err: Error waiting for Delete Service Networking Connection: Error code 9, message: Failed to delete connection; Producer services (e.g. CloudSQL, Cloud Memstore, etc.) are still using this connection.`
+
+**原因**:
+- Cloud SQLインスタンスの削除が完了する前にVPC Peering接続の削除を試みている
+- GCPのAPI側で削除処理が非同期で行われるため、タイミング問題が発生
+
+**解決方法**:
+
+1. **自動的に解決される場合がほとんどです**。`deletion_policy = "ABANDON"`が設定されているため、VPCネットワーク全体が削除されると、VPC Peering接続も自動的にクリーンアップされます。
+
+2. **手動でVPC Peering接続を削除する場合**:
+   ```bash
+   # 既存のピアリング接続を確認
+   gcloud services vpc-peerings list --service=servicenetworking.googleapis.com --network=NETWORK_NAME
+
+   # VPC Peering接続を削除（Cloud SQLインスタンスが削除された後）
+   gcloud services vpc-peerings delete \
+     --service=servicenetworking.googleapis.com \
+     --network=NETWORK_NAME
+   ```
+
+3. **テスト失敗時のリソースクリーンアップ**:
+   ```bash
+   # Cloud SQLインスタンスを手動で削除
+   gcloud sql instances delete INSTANCE_NAME --project=PROJECT_ID
+
+   # VPCネットワークを削除（VPC Peering接続も一緒に削除されます）
+   gcloud compute networks delete NETWORK_NAME --project=PROJECT_ID
+   ```
+
+**注意**: このエラーはテスト環境で時々発生しますが、リソースは最終的にクリーンアップされます。継続的にエラーが発生する場合は、上記の手動削除手順を実行してください。
+
+#### テスト実行時の権限エラー
+
+**症状**: `Error 403: Permission denied`
+
+**原因**: サービスアカウントに必要な権限がない
+
+**解決方法**:
+サービスアカウントに以下のロールを付与:
+```bash
+gcloud projects add-iam-policy-binding PROJECT_ID \
+  --member="serviceAccount:SERVICE_ACCOUNT_EMAIL" \
+  --role="roles/run.admin"
+
+gcloud projects add-iam-policy-binding PROJECT_ID \
+  --member="serviceAccount:SERVICE_ACCOUNT_EMAIL" \
+  --role="roles/compute.admin"
+
+gcloud projects add-iam-policy-binding PROJECT_ID \
+  --member="serviceAccount:SERVICE_ACCOUNT_EMAIL" \
+  --role="roles/cloudsql.admin"
+```
+
+#### DNSルックアップ失敗
+
+**症状**: `DNS lookup failed: no such host`
+
+**原因**:
+- DNS伝播が完了していない
+- Aレコードが作成されていない
+
+**解決方法**:
+1. Cloud DNSでAレコードの存在確認:
+   ```bash
+   gcloud dns record-sets list --zone=example-com
+   ```
+
+2. NSレコードの確認:
+   ```bash
+   dig NS example.com
+   ```
+
+3. 外部DNSサーバーでの確認:
+   ```bash
+   dig @8.8.8.8 bridge-test.example.com
+   ```
+
+#### Cloud Armorによるアクセス拒否
+
+**症状**: `HTTP 403 Forbidden`
+
+**原因**: テスト実行元のIPアドレスが許可リストに含まれていない
+
+**解決方法**:
+1. 現在のIPアドレスを確認:
+   ```bash
+   curl ifconfig.me
+   ```
+
+2. `terraform.tfvars`に自分のIPアドレスを追加:
+   ```hcl
+   allowed_ip_ranges = ["34.85.43.93/32", "YOUR_IP/32"]
+   ```
+
+### GCP CI/CD統合
+
+GitHub Actionsでテストを実行する場合の例：
+
+```yaml
+name: GCP Cloud Run Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Run tests
+        env:
+          TEST_GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          TEST_TENANT_ID: ${{ secrets.TENANT_ID }}
+          TEST_DOMAIN_NAME: ${{ secrets.TEST_DOMAIN_NAME }}
+          TEST_DNS_ZONE_NAME: ${{ secrets.TEST_DNS_ZONE_NAME }}
+        run: |
+          cd test
+          go test -v ./gcp -timeout 60m
+```
+
 ## 参考資料
 
+### AWS
 - [Terratest公式ドキュメント](https://terratest.gruntwork.io/)
 - [AWS ECS Fargate料金](https://aws.amazon.com/jp/fargate/pricing/)
 - [AWS Route53料金](https://aws.amazon.com/jp/route53/pricing/)
 - [AWS Certificate Manager料金](https://aws.amazon.com/jp/certificate-manager/pricing/)
+
+### GCP
+- [Cloud Run Testing Best Practices](https://cloud.google.com/run/docs/testing)
+- [Cloud SQL Testing](https://cloud.google.com/sql/docs/mysql/testing)
+- [Google Cloud Go SDK](https://cloud.google.com/go/docs/reference)
+- [Cloud Run料金](https://cloud.google.com/run/pricing)
+- [Cloud SQL料金](https://cloud.google.com/sql/pricing)

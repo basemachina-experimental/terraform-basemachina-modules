@@ -14,7 +14,7 @@ BaseMachina Bridgeは、BaseMachinaからお客様のプライベートデータ
 
 ## 主要機能
 
-- **マルチクラウド対応**: AWS（ECS Fargate）とGoogle Cloud（Cloud Run）をサポート（AWS完全実装済み）
+- **マルチクラウド対応**: AWS（ECS Fargate）とGoogle Cloud（Cloud Run）をサポート（両方実装済み）
 - **簡単なデプロイ**: Terraformモジュールによる自動的なインフラストラクチャプロビジョニング
 - **Route53統合によるDNS管理**: カスタムドメインとDNSレコードの自動作成
 - **DNS検証によるACM証明書の自動発行**: Route53統合により、手動での証明書管理が不要
@@ -28,15 +28,17 @@ BaseMachina Bridgeは、BaseMachinaからお客様のプライベートデータ
 
 ## クイックスタート
 
-### 前提条件
+### AWS (ECS Fargate)
+
+#### 前提条件
 
 - Terraform >= 1.0
-- AWS CLI v2.x（AWS環境の場合）
+- AWS CLI v2.x
 - 既存のVPCとサブネット（パブリック・プライベート）
 - BaseMachinaテナントID
 - Route53 Hosted Zone（DNS検証を使用する場合）
 
-### 基本的な使用方法
+#### 基本的な使用方法
 
 ```hcl
 module "bridge" {
@@ -65,39 +67,94 @@ module "bridge" {
 
 詳細な使用例とデプロイ手順については、[examples/aws-ecs-fargate/](examples/aws-ecs-fargate/) を参照してください。
 
+### GCP (Cloud Run)
+
+#### 前提条件
+
+- Terraform >= 1.0
+- gcloud CLI
+- GCPプロジェクト（必要なAPIを有効化）
+- BaseMachinaテナントID
+- Cloud DNS Managed Zone（HTTPS/DNSを使用する場合）
+
+#### 基本的な使用方法
+
+```hcl
+module "bridge" {
+  source = "github.com/basemachina/terraform-basemachina-modules//modules/gcp/cloud-run"
+
+  # プロジェクト設定
+  project_id = "my-gcp-project"
+  region     = "asia-northeast1"
+
+  # Bridge環境変数
+  tenant_id      = "your-tenant-id"
+  fetch_interval = "1h"
+  fetch_timeout  = "10s"
+
+  # カスタムドメイン設定（オプション）
+  domain_name   = "bridge.example.com"
+  dns_zone_name = "example-com"
+
+  # VPCネットワーク設定（オプション）
+  vpc_network_id    = "projects/my-project/global/networks/my-vpc"
+  vpc_subnetwork_id = "projects/my-project/regions/asia-northeast1/subnetworks/my-subnet"
+}
+```
+
+詳細な使用例とデプロイ手順については、[examples/gcp-cloud-run/](examples/gcp-cloud-run/) を参照してください。
+
 ## ディレクトリ構造
 
 ```
 terraform-basemachina-modules/
 ├── modules/                   # 再利用可能なTerraformモジュール
-│   └── aws/
-│       └── ecs-fargate/       # AWS ECS Fargateモジュール（実装済み）
+│   ├── aws/
+│   │   └── ecs-fargate/       # AWS ECS Fargateモジュール（実装済み）
+│   └── gcp/
+│       └── cloud-run/         # GCP Cloud Runモジュール（実装済み）
 ├── examples/                  # サンプル実装とデプロイ例
-│   └── aws-ecs-fargate/       # AWS ECS Fargateデプロイ例（実装済み）
+│   ├── aws-ecs-fargate/       # AWS ECS Fargateデプロイ例（実装済み）
+│   │   ├── scripts/           # ユーティリティスクリプト
+│   │   └── README.md          # 詳細なデプロイ手順
+│   └── gcp-cloud-run/         # GCP Cloud Runデプロイ例（実装済み）
 │       ├── scripts/           # ユーティリティスクリプト
-│       │   ├── generate-cert.sh           # 自己署名証明書生成
-│       │   ├── diagnose-dns-validation.sh # DNS検証診断
-│       │   └── cleanup-failed-resources.sh # リソースクリーンアップ
 │       └── README.md          # 詳細なデプロイ手順
 ├── test/                      # Terratest統合テスト
 │   ├── aws/                   # AWS関連テスト
-│   └── README.md              # テスト実行手順
+│   ├── gcp/                   # GCP関連テスト
+│   └── README.md              # テスト実行手順（AWS/GCP両方）
 └── README.md                  # このファイル
 ```
 
 ### 各ディレクトリの役割
 
-- **modules/**: 再利用可能なTerraformモジュール（VPC、サブネット、証明書ARNを受け取り、Bridge環境を構築）
-- **examples/**: 実際のデプロイ例（ACM証明書、Route53レコード、RDS、Bastionホストを含む完全な動作例）
+- **modules/**: 再利用可能なTerraformモジュール
+  - AWS: VPC、サブネット、証明書ARNを受け取り、ECS Fargate環境を構築
+  - GCP: プロジェクトID、リージョンを受け取り、Cloud Run環境を構築
+- **examples/**: 実際のデプロイ例
+  - AWS: ACM証明書、Route53レコード、RDS、Bastionホストを含む完全な動作例
+  - GCP: VPCネットワーク、Cloud SQL、Cloud DNS統合を含む完全な動作例
 - **test/**: Terratestによる自動化された統合テスト（HTTPS疎通確認、ヘルスチェック、DNS検証）
 
 ## ドキュメント
+
+### AWS (ECS Fargate)
 
 - **モジュールドキュメント**: [modules/aws/ecs-fargate/README.md](modules/aws/ecs-fargate/README.md)
   - 入力変数、出力値、証明書オプション、ネットワーク構成の詳細
 - **デプロイ手順**: [examples/aws-ecs-fargate/README.md](examples/aws-ecs-fargate/README.md)
   - 前提条件、デプロイ手順、証明書設定、RDS統合、トラブルシューティング
-- **テスト手順**: [test/README.md](test/README.md)
+- **テスト手順**: [test/README.md](test/README.md#aws-ecs-fargate)
+  - Terratest実行方法、環境変数、実行時間、トラブルシューティング
+
+### GCP (Cloud Run)
+
+- **モジュールドキュメント**: [modules/gcp/cloud-run/README.md](modules/gcp/cloud-run/README.md)
+  - 入力変数、出力値、VPC統合、Load Balancer設定の詳細
+- **デプロイ手順**: [examples/gcp-cloud-run/README.md](examples/gcp-cloud-run/README.md)
+  - 前提条件、デプロイ手順、Cloud SQL統合、トラブルシューティング
+- **テスト手順**: [test/README.md](test/README.md#gcp-cloud-run)
   - Terratest実行方法、環境変数、実行時間、トラブルシューティング
 
 ## テスト
