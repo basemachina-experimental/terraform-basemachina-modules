@@ -108,7 +108,8 @@ func TestCloudRunModule(t *testing.T) {
 
 			// Cloud Armor IP whitelist (allow all IPs for testing)
 			// WARNING: For testing purposes only. In production, restrict to specific IPs.
-			"allowed_ip_ranges": []string{"34.85.43.93/32", "0.0.0.0/0"},
+			// Note: BaseMachina IP (34.85.43.93/32) is always included by default
+			"allowed_ip_ranges": []string{"0.0.0.0/0"},
 
 			// Cloud SQL configuration
 			"database_name": "testdb",

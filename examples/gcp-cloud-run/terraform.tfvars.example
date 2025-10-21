@@ -54,7 +54,9 @@ vpc_egress = "PRIVATE_RANGES_ONLY"
 # domain_name            = "bridge.example.com"
 # enable_https_redirect  = true
 # enable_cloud_armor     = true
-# allowed_ip_ranges      = ["34.85.43.93/32"]
+#
+# 追加で許可するIPアドレス範囲（BaseMachina IP 34.85.43.93/32は常に許可されます）
+# allowed_ip_ranges      = ["203.0.113.0/24"]
 
 # ========================================
 # Cloud DNS Configuration

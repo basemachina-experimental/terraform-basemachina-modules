@@ -70,17 +70,18 @@ resource "google_compute_security_policy" "default" {
   name    = "${var.service_name}-policy"
   project = var.project_id
 
-  # BaseMachinaからのアクセスを許可
+  # BaseMachinaからのアクセスを許可（常に34.85.43.93/32を含む）
   rule {
     action   = "allow"
     priority = 1000
     match {
       versioned_expr = "SRC_IPS_V1"
       config {
-        src_ip_ranges = var.allowed_ip_ranges
+        # BaseMachina IP (34.85.43.93/32) is always included
+        src_ip_ranges = concat(["34.85.43.93/32"], var.allowed_ip_ranges)
       }
     }
-    description = "Allow access from BaseMachina and additional IPs"
+    description = "Allow access from BaseMachina (34.85.43.93/32) and additional IPs"
   }
 
   # デフォルトで拒否
