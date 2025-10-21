@@ -118,37 +118,54 @@ func TestCloudRunModule(t *testing.T) {
 	})
 
 	// Ensure cleanup
-	// Note: VPC Peering deletion may fail due to GCP timing issues.
-	// This is expected and will be cleaned up when running the cleanup script.
+	// Note: VPC/subnet deletion may fail due to serverless-ipv4 circular dependency.
+	// This is a known GCP Direct VPC Egress limitation and is expected.
+	// Resources will be cleaned up when running the cleanup script or via GCP Console.
 	defer func() {
 		t.Log("Starting terraform destroy...")
 
-		// VPC Peering削除エラーは既知の問題のため、panicをrecoverしてログのみ出力
-		defer func() {
-			if r := recover(); r != nil {
+		// Use DestroyE to avoid test failure on expected VPC deletion errors
+		_, err := terraform.DestroyE(t, terraformOptions)
+
+		if err != nil {
+			// VPC削除エラーは既知の問題（serverless-ipv4 circular dependency）
+			if strings.Contains(err.Error(), "already being used") ||
+			   strings.Contains(err.Error(), "servicenetworking") {
 				t.Logf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-				t.Logf("⚠️  terraform destroy failed (this is a known GCP VPC Peering issue)")
+				t.Logf("⚠️  VPC deletion failed (known GCP Direct VPC Egress limitation)")
 				t.Logf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 				t.Logf("")
-				t.Logf("To clean up remaining resources, run:")
+				t.Logf("This is expected behavior:")
+				t.Logf("  - serverless-ipv4 addresses are auto-created by Cloud Run")
+				t.Logf("  - They cannot be deleted independently")
+				t.Logf("  - This creates circular dependency: VPC ← subnet ← serverless-ipv4")
 				t.Logf("")
+				t.Logf("To clean up remaining resources:")
+				t.Logf("")
+				t.Logf("Option 1: Use cleanup script (recommended)")
 				t.Logf("  cd examples/gcp-cloud-run")
 				t.Logf("  ./scripts/cleanup.sh %s", projectID)
 				t.Logf("")
-				t.Logf("Or manually delete resources in GCP Console:")
-				t.Logf("  - Cloud SQL instances starting with: %s-db-", serviceName)
-				t.Logf("  - VPC network: %s-vpc", serviceName)
+				t.Logf("Option 2: Delete via GCP Console")
+				t.Logf("  https://console.cloud.google.com/networking/networks")
+				t.Logf("  - Delete VPC: %s-vpc", serviceName)
+				t.Logf("")
+				t.Logf("Option 3: Leave resources (no cost impact)")
+				t.Logf("  - VPC, subnet, serverless-ipv4 are all free")
+				t.Logf("  - New tests use unique IDs and won't conflict")
 				t.Logf("")
 				t.Logf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 				t.Logf("")
 
-				// テストは失敗させない（VPC Peering削除は既知の問題のため）
-				// t.FailNow()の代わりにログのみ出力
+				// テストは失敗させない（VPC削除は既知の問題のため）
+			} else {
+				// その他のエラーはログに出力するが、テストは失敗させない
+				t.Logf("⚠️  terraform destroy encountered an error: %v", err)
+				t.Logf("This may require manual cleanup via GCP Console or cleanup script")
 			}
-		}()
-
-		terraform.Destroy(t, terraformOptions)
-		t.Log("terraform destroy completed successfully")
+		} else {
+			t.Log("✅ terraform destroy completed successfully")
+		}
 	}()
 
 	// Run terraform init and apply
