@@ -12,6 +12,14 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -34,11 +42,27 @@ module "basemachina_bridge" {
   vpc_id             = var.vpc_id
   private_subnet_ids = var.private_subnet_ids
   public_subnet_ids  = var.public_subnet_ids
+  nat_gateway_id     = var.nat_gateway_id
 
   # ========================================
-  # SSL/TLS証明書
+  # SSL/TLS証明書とドメイン設定
   # ========================================
-  certificate_arn = var.certificate_arn
+  # ACM証明書はroute53_domain.tfでDNS検証により自動発行
+  certificate_arn = local.final_certificate_arn
+
+  # ドメイン設定
+  domain_name     = local.final_domain_name
+  route53_zone_id = local.final_route53_zone_id
+
+  # ACM証明書のDNS検証完了を待つ
+  depends_on = [
+    aws_acm_certificate_validation.bridge
+  ]
+
+  # ========================================
+  # セキュリティ設定
+  # ========================================
+  additional_alb_ingress_cidrs = var.additional_alb_ingress_cidrs
 
   # ========================================
   # Bridge環境変数
@@ -54,7 +78,6 @@ module "basemachina_bridge" {
   cpu                = var.cpu
   memory             = var.memory
   desired_count      = var.desired_count
-  assign_public_ip   = var.assign_public_ip
   log_retention_days = var.log_retention_days
 
   # ========================================
@@ -66,18 +89,18 @@ module "basemachina_bridge" {
 }
 
 # ========================================
-# データベース接続の例（オプション）
+# データベース接続の例
 # ========================================
-# モジュールのbridge_security_group_id出力値を使って、
-# 接続したいリソースのセキュリティグループルールを追加します
+# このexampleでは、rds.tfでRDS PostgreSQLインスタンスを作成し、
+# Bridgeからの接続を許可するセキュリティグループルールを自動設定しています。
 #
-# 例: RDSへの接続を許可
-# resource "aws_security_group_rule" "bridge_to_rds" {
+# 独自のデータベースに接続する場合の例:
+# resource "aws_security_group_rule" "bridge_to_custom_db" {
 #   type                     = "ingress"
-#   from_port                = 5432
-#   to_port                  = 5432
+#   from_port                = 3306  # MySQLの場合
+#   to_port                  = 3306
 #   protocol                 = "tcp"
 #   source_security_group_id = module.basemachina_bridge.bridge_security_group_id
-#   security_group_id        = var.rds_security_group_id
-#   description              = "Allow Bridge to access RDS"
+#   security_group_id        = "sg-xxxxx"  # 接続先DBのセキュリティグループID
+#   description              = "Allow Bridge to access MySQL"
 # }

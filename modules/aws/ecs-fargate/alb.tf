@@ -54,34 +54,13 @@ resource "aws_lb_target_group" "bridge" {
 }
 
 # ========================================
-# ALB HTTPリスナー
-# ========================================
-# HTTP:80でリクエストを受け付け、Bridgeターゲットグループにルーティング
-# - certificate_arnが指定されていない場合のみ作成される
-# - テスト環境での利用を想定
-
-resource "aws_lb_listener" "http" {
-  count             = var.certificate_arn == null ? 1 : 0
-  load_balancer_arn = aws_lb.main.arn
-  port              = "80"
-  protocol          = "HTTP"
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.bridge.arn
-  }
-}
-
-# ========================================
 # ALB HTTPSリスナー
 # ========================================
 # HTTPS:443でリクエストを受け付け、Bridgeターゲットグループにルーティング
 # - TLS 1.3/1.2の暗号化を強制
 # - ACM証明書による自動TLS終端
-# - certificate_arnが指定されている場合のみ作成される
 
 resource "aws_lb_listener" "https" {
-  count             = var.certificate_arn != null ? 1 : 0
   load_balancer_arn = aws_lb.main.arn
   port              = "443"
   protocol          = "HTTPS"

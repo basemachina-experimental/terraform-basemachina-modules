@@ -75,9 +75,19 @@ modules/
 examples/
 ├── aws-ecs-fargate/          # 実装済み
 │   ├── main.tf               # モジュールの使用例
+│   ├── acm.tf                # ACM証明書（DNS検証）
+│   ├── route53_domain.tf     # Route53 Aレコード
+│   ├── rds.tf                # RDSインスタンス（完全な例用）
+│   ├── bastion.tf            # Bastionホスト（テスト用）
 │   ├── variables.tf          # カスタマイズ可能な変数
 │   ├── outputs.tf            # 出力例
 │   ├── terraform.tfvars.example  # 設定例
+│   ├── scripts/              # ユーティリティスクリプト
+│   │   ├── generate-cert.sh  # 自己署名証明書生成
+│   │   ├── diagnose-dns-validation.sh  # DNS検証診断
+│   │   ├── cleanup-failed-resources.sh  # リソースクリーンアップ
+│   │   └── init.sql          # RDS初期化SQL
+│   ├── certs/                # 証明書ファイル（.gitignore対象）
 │   └── README.md             # デプロイ手順
 └── gcp-cloud-run/            # 予定
     ├── main.tf
@@ -94,12 +104,15 @@ examples/
 ```
 test/
 ├── aws/
-│   └── ecs_fargate_test.go   # Terratestによる統合テスト（実装済み）
+│   ├── ecs_fargate_test.go   # Terratestによる統合テスト（実装済み）
+│   └── README.md             # test/README.mdへのリダイレクト
 ├── tmp/                      # テスト実行時の一時ファイル
 ├── go.mod                    # Go module定義
 ├── go.sum                    # Go module依存関係
-└── README.md                 # テスト実行手順
+└── README.md                 # 統合テスト実行手順（統合ドキュメント）
 ```
+
+**注**: test/README.mdはtest/aws/README.mdの内容を統合し、すべてのテスト関連ドキュメントを1箇所に集約しています。test/aws/README.mdは親ディレクトリへのリダイレクトとなっています。
 
 ## コード構成パターン
 
@@ -127,6 +140,26 @@ module-name/
 - **versions.tf**: Terraformおよびプロバイダーのバージョン制約
 - **locals.tf**: 複雑な計算やタグの定義に使用するローカル変数（オプション）
 - **data.tf**: 既存リソースの参照（AMI、VPCなど、オプション）
+
+### Exampleファイルの役割
+
+examples/aws-ecs-fargateの追加ファイル：
+
+- **acm.tf**: ACM証明書リソース（DNS検証）
+  - Route53でDNS検証レコードを自動作成
+  - 証明書の検証完了を待機（最大15分）
+  - bridge_domain_nameとroute53_zone_idが設定されている場合のみ作成
+- **route53_domain.tf**: Route53 Aレコード
+  - BridgeエンドポイントへのAレコード（ALBへのエイリアス）
+  - bridge_domain_nameとroute53_zone_idが設定されている場合のみ作成
+- **rds.tf**: RDSインスタンス（PostgreSQL）
+  - 完全な動作例を提供するため（Bridgeモジュールには含まれない）
+  - サブネットグループ、パラメータグループ、セキュリティグループを含む
+  - データベース初期化用のinit.sqlスクリプトと連携
+- **bastion.tf**: Bastionホスト（EC2インスタンス）
+  - RDSへのSSHトンネル経由でのアクセス用
+  - テストやデバッグ時のデータベース接続確認に使用
+  - パブリックサブネットに配置
 
 ## ファイル命名規則
 

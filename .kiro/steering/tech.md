@@ -34,12 +34,18 @@
 
 - **コンテナオーケストレーション**: Amazon ECS Fargate
 - **ロードバランサー**: Application Load Balancer (ALB)
+- **証明書管理**: AWS Certificate Manager (ACM)
+  - DNS検証による自動発行（Route53統合、推奨）
+  - 自己署名証明書のインポート
+  - 既存証明書の利用
 - **DNS管理**: Amazon Route 53
+  - ACM証明書のDNS検証レコード自動作成
+  - BridgeエンドポイントのAレコード自動作成
 - **コンテナレジストリ**: Amazon ECR Public（イメージ取得元）
 - **IAM権限管理**: タスク実行ロール、タスクロール
 - **ロギング**: Amazon CloudWatch Logs
-- **ネットワーキング**: VPC、サブネット、セキュリティグループ
-- **データベース**: Amazon RDS（接続先）
+- **ネットワーキング**: VPC、サブネット、セキュリティグループ、NAT Gateway（必須）
+- **データベース**: Amazon RDS（接続先、exampleで使用）
 
 #### Google Cloud（推奨環境: Cloud Run）
 
@@ -139,13 +145,24 @@ tfsec .
 
 # モジュールのテスト（Terratest）
 cd test
-go test -v ./aws/...
+go test -v ./aws -timeout 60m
 
 # テスト実行に必要な環境変数
 export TEST_VPC_ID="vpc-xxxxx"
-export TEST_PUBLIC_SUBNET_IDS="subnet-xxxxx,subnet-yyyyy"
+export TEST_PRIVATE_SUBNET_IDS="subnet-xxxxx,subnet-yyyyy"
+export TEST_PUBLIC_SUBNET_IDS="subnet-aaaaa,subnet-bbbbb"
 export TEST_TENANT_ID="your-tenant-id"
-export TEST_CERTIFICATE_ARN="arn:aws:acm:region:account:certificate/xxxxx"  # オプション
+
+# 証明書オプション（いずれか1つを選択）
+# オプション1: DNS検証によるACM証明書発行（推奨）
+export TEST_BRIDGE_DOMAIN_NAME="bridge-test.example.com"
+export TEST_ROUTE53_ZONE_ID="Z1234567890ABC"
+
+# オプション2: 自己署名証明書
+export TEST_ENABLE_ACM_IMPORT="true"
+
+# オプション3: 既存のACM証明書
+export TEST_CERTIFICATE_ARN="arn:aws:acm:region:account:certificate/xxxxx"
 ```
 
 ## 環境変数
@@ -234,3 +251,44 @@ Bridge コンテナ内のアプリケーションが AWS サービスにアク�
 - **AWS**: AWS Secrets Manager または Systems Manager Parameter Store
 - **GCP**: Secret Manager
 - Terraform変数として機密情報を直接コミットしないこと
+
+## ユーティリティスクリプト
+
+### examples/aws-ecs-fargate/scripts/
+
+プロジェクトには以下のユーティリティスクリプトが含まれています：
+
+#### generate-cert.sh
+自己署名証明書を生成します（テスト環境用）。
+
+```bash
+./scripts/generate-cert.sh bridge-test.example.com
+```
+
+生成される証明書は`certs/`ディレクトリに保存されます。
+
+#### diagnose-dns-validation.sh
+ACM証明書のDNS検証問題を診断します。
+
+```bash
+./scripts/diagnose-dns-validation.sh bridge-test.example.com Z1234567890ABC
+```
+
+以下をチェックします：
+- Route53 Hosted Zoneの存在
+- DNS検証レコード（CNAME）の作成状態
+- DNSの伝播状況
+
+#### cleanup-failed-resources.sh
+テスト失敗時に残ったリソースをクリーンアップします。
+
+```bash
+./scripts/cleanup-failed-resources.sh
+```
+
+#### init.sql
+RDSデータベース初期化用のSQLスクリプト（example用）。
+
+```sql
+-- サンプルデータベースとテーブルを作成
+```

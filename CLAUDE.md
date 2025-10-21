@@ -15,7 +15,9 @@ Kiro-style Spec Driven Development implementation using claude code slash comman
 **Specs** (`.kiro/specs/`) - Formalize development process for individual features
 
 ### Active Specifications
-- **aws-ecs-fargate-bridge**: AWS ECS FargateでBaseMachina bridgeをデプロイするTerraformモジュール
+- **ecs-fargate-implementation**: AWS ECS FargateでBaseMachina bridgeをデプロイするTerraformモジュール（100%完了）
+- **practical-example-and-test-enhancement**: ECS Fargateモジュールの実践的なexampleとテスト強化（HTTPS証明書検証、RDS接続）
+- **documentation-update**: ドキュメント（README.md等）を現状の実装に合わせて更新（オプション、テスト手順の修正）
 - Use `/kiro:spec-status [feature-name]` to check progress
 
 ## Development Guidelines

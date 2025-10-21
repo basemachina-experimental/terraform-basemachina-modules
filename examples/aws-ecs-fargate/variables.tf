@@ -13,8 +13,14 @@ variable "private_subnet_ids" {
 }
 
 variable "public_subnet_ids" {
-  description = "ALBを配置するパブリックサブネットIDのリスト（複数AZ推奨）"
+  description = "ALBとNAT Gatewayを配置するパブリックサブネットIDのリスト（複数AZ推奨）"
   type        = list(string)
+}
+
+variable "nat_gateway_id" {
+  description = "既存のNAT Gateway IDを使用する場合に指定（オプション）。指定しない場合は新しいNAT Gatewayが作成されます。"
+  type        = string
+  default     = null
 }
 
 # ========================================
@@ -25,6 +31,18 @@ variable "certificate_arn" {
   description = "HTTPS通信用のACM証明書ARN（オプション、未指定の場合はHTTPリスナーを使用）"
   type        = string
   default     = null
+}
+
+variable "enable_acm_import" {
+  description = "ローカル証明書をACMにインポートする（テスト環境向け）。trueの場合、certs/ディレクトリの自己署名証明書をACMにインポートします。本番環境では使用しないでください。"
+  type        = bool
+  default     = false
+}
+
+variable "additional_alb_ingress_cidrs" {
+  description = "ALBへのHTTPSアクセスを許可する追加のCIDRブロック（テストや追加クライアント用）。BaseMachina IP (34.85.43.93/32) は常に含まれます。"
+  type        = list(string)
+  default     = []
 }
 
 # ========================================
@@ -76,12 +94,6 @@ variable "desired_count" {
   default     = 1
 }
 
-variable "assign_public_ip" {
-  description = "ECSタスクにパブリックIPを割り当てる（プライベートサブネットにNAT Gatewayがない場合に必要）"
-  type        = bool
-  default     = false
-}
-
 variable "log_retention_days" {
   description = "CloudWatch Logsの保持期間（日）"
   type        = number
@@ -106,4 +118,58 @@ variable "name_prefix" {
   description = "リソース名のプレフィックス"
   type        = string
   default     = "prod"
+}
+
+# ========================================
+# Bastion Host設定
+# ========================================
+
+variable "enable_bastion" {
+  description = "Bastionホストを作成するかどうか。プライベートサブネット内のRDSに接続する場合に有効化します。"
+  type        = bool
+  default     = true
+}
+
+variable "bastion_instance_type" {
+  description = "BastionホストのEC2インスタンスタイプ"
+  type        = string
+  default     = "t3.micro"
+}
+
+variable "bastion_ssh_public_key" {
+  description = "Bastionホストへのアクセスに使用するSSH公開鍵。未指定の場合はSession Manager経由でのみアクセス可能。"
+  type        = string
+  default     = ""
+}
+
+variable "bastion_allowed_ssh_cidrs" {
+  description = "BastionホストへのSSHアクセスを許可するCIDRブロックのリスト。bastion_ssh_public_keyが指定されている場合のみ有効。"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+# ========================================
+# ドメイン設定（必須）
+# ========================================
+
+variable "bridge_domain_name" {
+  description = <<-EOT
+    Bridgeのドメイン名（例: bridge.example.com）。
+
+    ACM証明書がDNS検証で自動発行され、DNS検証レコードとALBへのAレコードが
+    既存のRoute53 Hosted Zoneに自動的に作成されます。
+  EOT
+  type        = string
+}
+
+variable "route53_zone_id" {
+  description = <<-EOT
+    既存のRoute53 Hosted Zone ID（必須）。
+
+    ACM証明書のDNS検証レコードとALBへのAレコードが、このZoneに作成されます。
+
+    Zone IDの確認方法:
+      aws route53 list-hosted-zones --query "HostedZones[?Name=='example.com.'].Id" --output text
+  EOT
+  type        = string
 }
