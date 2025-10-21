@@ -73,6 +73,48 @@ module "bridge" {
 
 **注**: NAT Gatewayは自動的に作成されます（Bridge初期化用、既存のNAT Gateway IDを指定することも可能）。VPCエンドポイント（ECR、S3、CloudWatch Logs）とECRプルスルーキャッシュもデフォルトで有効化されます。
 
+### ネットワーク構成の詳細
+
+このモジュールは、セキュリティとコスト効率を両立するために、VPCエンドポイントとNAT Gatewayのハイブリッド構成を採用しています。
+
+#### NAT Gateway（必須）
+
+プライベートサブネット内のBridgeタスクがインターネットにアクセスするために必要です。
+
+- **役割**: Public ECR（`public.ecr.aws`）からBridgeコンテナイメージをプルするための外部アクセスを提供
+- **作成**: デフォルトで新規作成、または既存のNAT Gateway IDを`nat_gateway_id`変数で指定可能
+- **配置**: パブリックサブネットに配置され、Elastic IPが割り当てられる
+
+#### VPCエンドポイント（推奨）
+
+プライベートサブネット内のリソースがインターネットを経由せずにAWSサービスにアクセスできます。
+
+- **ECR API/DKR エンドポイント**: Private ECRへのアクセスに使用（将来の拡張用）
+- **S3 エンドポイント**: ECRレイヤーの取得に使用（ゲートウェイ型、追加コストなし）
+- **CloudWatch Logs エンドポイント**: ログ送信に使用
+- **利点**: データ転送コスト削減、レイテンシ低減、セキュリティ向上
+
+#### ECRプルスルーキャッシュ
+
+Public ECRのイメージをPrivate ECRにキャッシュする機能です。
+
+- **仕組み**: `public.ecr.aws/basemachina/bridge`のイメージを自動的にPrivate ECRにキャッシュ
+- **利点**:
+  - Public ECRのレート制限回避
+  - イメージプル速度の向上
+  - 可用性の向上（Public ECR障害時も動作）
+- **設定**: `aws_ecr_pull_through_cache_rule.public_ecr`リソースで自動作成
+
+#### 推奨構成
+
+**VPCエンドポイント + NAT Gateway**のハイブリッド構成を推奨します：
+
+- VPCエンドポイント: Private ECR、S3、CloudWatch Logsへの効率的なアクセス
+- NAT Gateway: Public ECRへのアクセス（初回イメージプル時）
+- ECRプルスルーキャッシュ: Public → Private ECRキャッシュによる安定性向上
+
+この構成により、セキュリティ、コスト効率、可用性のバランスが最適化されます。
+
 詳細な前提条件については、[examples/aws-ecs-fargate/README.md](../../examples/aws-ecs-fargate/README.md) を参照してください。
 
 ## 入力変数
@@ -235,6 +277,38 @@ output "bridge_url" {
 - Route53 Hosted Zoneに自動的にAレコード（ALBへのエイリアス）が作成されます
 - ACM証明書はドメイン名をカバーしている必要があります
 - Route53 Hosted Zoneは事前に作成されている必要があります
+
+## 証明書オプション
+
+このモジュールはHTTPS通信を必須とするため、`certificate_arn`変数でACM証明書のARNを指定する必要があります。以下のいずれかの方法で証明書を準備できます：
+
+### 1. DNS検証によるACM証明書自動発行（推奨）
+
+Route53でDNS検証を使用してACM証明書を自動的に発行します。Route53 Hosted Zoneが必要です。
+
+- **利点**: 自動更新、AWSマネージド、最も簡単
+- **要件**: Route53 Hosted Zone、ドメイン所有権
+- **設定**: [examples/aws-ecs-fargate/](../../examples/aws-ecs-fargate/) の `acm.tf` を参照
+
+### 2. 自己署名証明書のACMインポート
+
+テスト環境向けに自己署名証明書を生成してACMにインポートします。
+
+- **利点**: 外部ドメイン不要、テスト環境に最適
+- **欠点**: ブラウザ警告、手動更新必要
+- **設定**: [examples/aws-ecs-fargate/scripts/generate-cert.sh](../../examples/aws-ecs-fargate/scripts/generate-cert.sh) を使用
+
+### 3. 既存のACM証明書の利用
+
+既にAWS ACMに登録されている証明書を使用します。
+
+- **利点**: 既存のインフラと統合
+- **要件**: 証明書がドメイン名をカバーしていること
+- **設定**: `certificate_arn`変数に証明書ARNを指定
+
+**注**: HTTPのみの構成はサポートされていません。`certificate_arn`は必須パラメータです。
+
+詳細な設定方法と各オプションの使用例については、[examples/aws-ecs-fargate/README.md](../../examples/aws-ecs-fargate/README.md) を参照してください。
 
 ## セキュリティベストプラクティス
 

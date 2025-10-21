@@ -574,6 +574,53 @@ RDSインスタンスは`terraform destroy`で自動的に削除されます。�
 
 ## トラブルシューティング
 
+### ACM証明書のDNS検証が完了しない
+
+DNS検証によるACM証明書の発行を使用している場合、証明書の検証が完了しない問題が発生することがあります。
+
+#### 診断スクリプトの使用
+
+`diagnose-dns-validation.sh`スクリプトで問題を診断できます：
+
+```bash
+cd examples/aws-ecs-fargate
+./scripts/diagnose-dns-validation.sh bridge.example.com Z1234567890ABC
+```
+
+このスクリプトは以下を確認します：
+- Route53 Hosted Zoneの存在
+- DNS検証レコード（`_acm-challenge`）の存在
+- DNS伝播の状態
+- ACM証明書のステータス
+
+#### よくある原因と対処法
+
+1. **Route53 Zone IDの間違い**
+   ```bash
+   # 正しいZone IDを確認
+   aws route53 list-hosted-zones --query "HostedZones[?Name=='example.com.'].Id" --output text
+   ```
+   - Zone IDが`/hostedzone/Z1234567890ABC`の形式の場合、`Z1234567890ABC`の部分のみを使用
+
+2. **ドメイン名とZoneの不一致**
+   - Zone: `example.com`
+   - Domain: `bridge.example.com` ✓ 正しい
+   - Domain: `bridge.different.com` ✗ 異なるZone
+
+3. **DNS伝播待ち**
+   - 初回作成: 5-15分かかる場合があります
+   - DNS検証レコードが作成されるまで待つ必要があります
+   - `dig _acm-challenge.bridge.example.com CNAME`でDNS伝播を確認
+
+4. **IAM権限不足**
+   - Route53への書き込み権限（`route53:ChangeResourceRecordSets`）が必要
+   - ACMへの読み取り権限（`acm:DescribeCertificate`）が必要
+
+5. **Terraformタイムアウト**
+   - DNS検証は最大15分でタイムアウト
+   - タイムアウトした場合、再度`terraform apply`を実行
+   - 通常は2回目の実行で成功します
+
 ### タスクが起動しない
 
 デフォルトでVPCエンドポイントを使用しているため、NAT Gatewayが不要です。タスクが起動しない場合は以下を確認してください：
