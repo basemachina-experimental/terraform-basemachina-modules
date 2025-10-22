@@ -34,22 +34,22 @@ cp .env.example .env
   - ACM証明書がDNS検証で自動発行されます
   - Route53にAレコードが自動作成されます
 
-オプション環境変数（ネットワークアクセス構成）：
-- `TEST_ENABLE_VPC_ENDPOINTS`: VPCエンドポイントを使用してPrivate ECR/S3/CloudWatch Logsにアクセス（デフォルト: `true`、推奨）
-  - 未設定または`false`以外（デフォルト）: VPCエンドポイント有効（コスト効率的）
-  - `false`: VPCエンドポイント無効（NAT Gatewayのみ使用）
-
-**重要**: BaseMachina Bridgeイメージは**Public ECR (public.ecr.aws)** でホストされており、Public ECRはVPCエンドポイントをサポートしていません。したがって、**NAT Gatewayが必須**です。
-
 **ネットワーク構成**:
-- **デフォルト構成（推奨）**: VPCエンドポイント + NAT Gateway
-  - VPCエンドポイント: Private ECR、S3、CloudWatch Logs用（コスト削減）
-  - NAT Gateway: Public ECR (public.ecr.aws) 用（必須）
-  - 必要なリソース: プライベートサブネット + NAT Gateway
 
-- **NAT Gatewayのみ**: TEST_ENABLE_VPC_ENDPOINTS=false
-  - すべてのインターネットアクセスにNAT Gatewayを使用
-  - 必要なリソース: プライベートサブネット + NAT Gateway
+モジュールは**VPCエンドポイント + NAT Gateway のハイブリッド構成**を自動的にデプロイします：
+
+- **VPCエンドポイント**（自動作成）: Private ECR API/DKR、S3、CloudWatch Logs用
+  - コスト削減とセキュリティ向上
+  - プライベートサブネットからAWSサービスへの効率的なアクセス
+
+- **NAT Gateway**（必須、自動作成）:
+  - Public ECR (public.ecr.aws) からのBridgeイメージプル用
+  - BaseMachina認証サーバーへのアクセス用
+  - **注**: Public ECRはVPCエンドポイントをサポートしていないため、NAT Gatewayが必須です
+
+- **ECRプルスルーキャッシュ**（自動作成）:
+  - Public ECRイメージをPrivate ECRにキャッシュ
+  - 初回プル後はVPCエンドポイント経由でアクセス可能
 
 オプション環境変数：
 - `TEST_DESIRED_COUNT`: デプロイするECSタスク数（デフォルト: 1）
@@ -62,23 +62,21 @@ cp .env.example .env
 
 テストを実行する前に、以下のリソースが必要です：
 
-**必須構成（VPCエンドポイント + NAT Gateway）**：
+**必須リソース**：
 - **VPC**: テスト用のVPC
 - **プライベートサブネット**（複数AZ）: ECSタスク配置用
-- **パブリックサブネット**（複数AZ）: ALB配置用、NAT Gateway配置用
-- **NAT Gateway**: **必須**（各AZに推奨）
-  - Public ECR (public.ecr.aws) からイメージをpullするために必要
+- **パブリックサブネット**（複数AZ）: ALB配置用、NAT Gateway配置用（新規NAT Gateway作成時）
+- **NAT Gateway**: **必須**
+  - テストでは既存のNAT Gatewayを使用、または新規作成します
+  - Public ECR (public.ecr.aws) からのイメージプルとBaseMachina認証サーバーへのアクセスに必要
   - プライベートサブネットのルートテーブルに0.0.0.0/0 → NAT Gatewayのルートが設定されていること
 - **BaseMachinaテナントID**: Bridge設定用
-- **環境変数設定**: デフォルト（VPCエンドポイント有効）
-- **自動作成されるリソース**:
-  - VPCエンドポイント: ECR API、ECR Docker、S3、CloudWatch Logs
-  - これらはPrivate ECR用で、コスト削減に寄与
 
-**NAT Gatewayのみ構成**：
-- 上記と同じリソースが必要
-- **環境変数設定**: `TEST_ENABLE_VPC_ENDPOINTS=false`
-- VPCエンドポイントを作成せず、すべてNAT Gateway経由でアクセス
+**自動作成されるリソース**（テストで毎回作成）:
+- **VPCエンドポイント**: ECR API、ECR Docker、S3、CloudWatch Logs
+  - Private ECRアクセス用、コスト削減とセキュリティ向上
+- **ECRプルスルーキャッシュ**: Public ECR → Private ECRキャッシュルール
+  - Public ECRイメージの可用性向上
 
 **Route53 Hosted Zone（必須）**：
 - 既存のRoute53 Hosted Zone
@@ -146,8 +144,9 @@ go test -v ./aws -run TestECSFargateModule -timeout 60m
 3. **リソース作成**
    - ECS Cluster、Task Definition、Service
    - ALB (Application Load Balancer)
-   - NAT Gateway（Bridge初期化用、必須）
-   - VPC Endpoints (ECR, S3, CloudWatch Logs)（デフォルト構成）
+   - NAT Gateway（Public ECRアクセスとBaseMachina認証サーバー接続用、必須）
+   - VPC Endpoints (ECR API/DKR, S3, CloudWatch Logs)（常に作成）
+   - ECR Pull Through Cache（Public ECR → Private ECRキャッシュ）
    - ACM Certificate（DNS検証で自動発行、最大15分タイムアウト）
    - Route53 A Record（ALBへのエイリアス）
 
@@ -178,8 +177,9 @@ go test -v ./aws -run TestECSFargateModule -timeout 60m
 3. **リソース作成**:
    - ECS Cluster、Task Definition、Service
    - ALB (Application Load Balancer)
-   - NAT Gateway（Bridge初期化用、必須）
-   - VPC Endpoints (ECR, S3, CloudWatch Logs)（デフォルト構成）
+   - NAT Gateway（Public ECRアクセスとBaseMachina認証サーバー接続用、必須）
+   - VPC Endpoints (ECR API/DKR, S3, CloudWatch Logs)（常に作成）
+   - ECR Pull Through Cache（Public ECR → Private ECRキャッシュ）
    - ACM Certificate（DNS検証で自動発行）
    - Route53 A Record（ALBへのエイリアス）
 4. **ヘルスチェック**:

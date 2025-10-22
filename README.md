@@ -16,11 +16,14 @@ BaseMachina Bridgeは、BaseMachinaからお客様のプライベートデータ
 
 - **マルチクラウド対応**: AWS（ECS Fargate）とGoogle Cloud（Cloud Run）をサポート（両方実装済み）
 - **簡単なデプロイ**: Terraformモジュールによる自動的なインフラストラクチャプロビジョニング
-- **Route53統合によるDNS管理**: カスタムドメインとDNSレコードの自動作成
-- **DNS検証によるACM証明書の自動発行**: Route53統合により、手動での証明書管理が不要
-- **複数の証明書オプション**: DNS検証、自己署名証明書、既存証明書、HTTPのみ構成をサポート
-- **VPCエンドポイント + NAT Gatewayのハイブリッド構成**: コスト効率とセキュリティのバランス
-- **ECRプルスルーキャッシュ**: Public ECRイメージの自動キャッシュによる可用性向上
+- **Route53統合によるDNS管理**（AWS）: カスタムドメインとDNSレコードの自動作成
+- **DNS検証によるACM証明書の自動発行**（AWS）: Route53統合により、手動での証明書管理が不要
+- **Google-managed SSL証明書の自動発行**（GCP）: カスタムドメイン使用時に自動プロビジョニング
+- **複数の証明書オプション**（AWS）: DNS検証、自己署名証明書、既存ACM証明書をサポート
+- **VPCエンドポイント + NAT Gatewayのハイブリッド構成**（AWS）: コスト効率とセキュリティのバランス
+- **Direct VPC Egress / VPC Connector対応**（GCP）: プライベートネットワーク統合
+- **ECRプルスルーキャッシュ**（AWS）: Public ECRイメージの自動キャッシュによる可用性向上
+- **Cloud Armor IPアクセス制御**（GCP）: BaseMachina IPの自動ホワイトリスト登録
 - **Terratestによる包括的な統合テスト**: HTTPS疎通確認、ヘルスチェック、DNS検証を含む自動化テスト
 - **セキュアなアクセス**: 認証機能付きゲートウェイ、IPホワイトリスト、HTTPS通信の強制
 - **ヘルスチェック機能**: `/ok`エンドポイントによる監視
@@ -172,7 +175,8 @@ go test -v ./aws -timeout 60m
 
 - **AWS**: ECS Fargate（実装済み）
   - Application Load Balancer、ACM証明書、Route53、VPCエンドポイント、ECRプルスルーキャッシュ
-- **Google Cloud**: Cloud Run（予定）
+- **Google Cloud**: Cloud Run（実装済み）
+  - Cloud Load Balancer、Google-managed SSL証明書、Cloud DNS、Cloud Armor、Direct VPC Egress
 
 ## セキュリティ
 

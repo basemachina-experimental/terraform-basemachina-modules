@@ -32,7 +32,7 @@ output "service_account_email" {
 
 output "bridge_image_uri" {
   description = "Bridge container image URI used by Cloud Run service"
-  value       = "ghcr.io/basemachina/bridge:latest"
+  value       = "gcr.io/basemachina/bridge:latest"
 }
 
 # ========================================

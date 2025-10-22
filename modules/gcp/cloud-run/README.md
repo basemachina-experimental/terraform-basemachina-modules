@@ -137,7 +137,10 @@ output "bridge_sa" {
 ## セキュリティ考慮事項
 
 - **最小権限の原則**: サービスアカウントには必要最小限の権限（Cloud SQL Client、Log Writer）のみを付与
-- **IPホワイトリスト**: Cloud Armorを使用してBaseMachinaのIP（34.85.43.93/32）からのアクセスのみを許可
+- **IPホワイトリスト**: Cloud Armorを使用したIPベースのアクセス制御
+  - **BaseMachina IP自動追加**: 34.85.43.93/32 は `allowed_ip_ranges` に明示的に指定しなくても自動的に許可されます
+  - **追加IP指定**: `allowed_ip_ranges` で追加のIPアドレス範囲を指定できます（デフォルト: 空リスト `[]`）
+  - **全IP許可**: `allowed_ip_ranges = ["*"]` を指定すると全てのIPアドレスからアクセス可能になります
 - **HTTPS強制**: `enable_https_redirect = true`でHTTPトラフィックを自動的にHTTPSにリダイレクト
 - **プライベートネットワーク**: Cloud Runサービスは内部ロードバランサー経由でのみアクセス可能（`INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER`）
 

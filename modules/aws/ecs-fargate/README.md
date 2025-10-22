@@ -71,7 +71,7 @@ module "bridge" {
 2. **ACM証明書**: HTTPS通信用のSSL/TLS証明書
 3. **AWS認証情報**: Terraformを実行するためのIAM権限
 
-**注**: NAT Gatewayは自動的に作成されます（Bridge初期化用、既存のNAT Gateway IDを指定することも可能）。VPCエンドポイント（ECR、S3、CloudWatch Logs）とECRプルスルーキャッシュもデフォルトで有効化されます。
+**注**: NAT Gatewayは自動的に作成されます（Public ECRアクセスとBaseMachina認証サーバー接続用、既存のNAT Gateway IDを指定することも可能）。VPCエンドポイント（ECR API/DKR、S3、CloudWatch Logs）とECRプルスルーキャッシュもデフォルトで有効化されます。
 
 ### ネットワーク構成の詳細
 
