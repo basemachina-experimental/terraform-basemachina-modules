@@ -49,12 +49,29 @@
 
 #### Google Cloud（推奨環境: Cloud Run）
 
-- **コンピューティング**: Cloud Run（フルマネージド）
+- **コンピューティング**: Cloud Run v2（フルマネージド、サーバーレス）
 - **ロードバランサー**: Cloud Load Balancing
+  - Global External HTTPS Load Balancer
+  - Serverless Network Endpoint Group (NEG)
+  - Backend Service with Cloud Armor
+- **SSL証明書**: Google-managed SSL Certificate（自動発行）
+- **セキュリティ**: Cloud Armor
+  - IPベースのアクセス制御
+  - BaseMachina IP（34.85.43.93/32）のホワイトリスト
 - **DNS管理**: Cloud DNS
-- **コンテナレジストリ**: GitHub Container Registry（イメージ取得元）
-- **ネットワーキング**: VPC、Serverless VPC Access
+  - Managed Zone
+  - Aレコード自動作成
+- **コンテナレジストリ**: GitHub Container Registry（イメージ取得元: ghcr.io）
+- **IAM権限管理**: サービスアカウント、IAMロールバインディング
+- **ロギング**: Cloud Logging（自動統合）
+- **ネットワーキング**: VPC、Direct VPC Egress / VPC Connector
+  - Direct VPC Egress（推奨）: Cloud Run Gen2での新しいVPC統合方式
+  - VPC Connector（レガシー）: 従来のVPC統合方式
+  - VPC Peering: Cloud SQL用のプライベート接続
 - **データベース**: Cloud SQL（接続先）
+  - PostgreSQL 15
+  - プライベートIPのみ（ipv4_enabled: false）
+  - Point-in-time Recovery有効
 
 ### Bridgeコンテナイメージ
 

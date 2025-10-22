@@ -12,12 +12,14 @@ terraform-basemachina-modules/
 ├── modules/                   # Terraformモジュール
 │   ├── aws/                   # AWSモジュール
 │   │   └── ecs-fargate/       # ECS Fargateモジュール（実装済み）
-│   └── gcp/                   # GCPモジュール（予定）
+│   └── gcp/                   # GCPモジュール
+│       └── cloud-run/         # Cloud Runモジュール（実装済み）
 ├── examples/                  # サンプル実装
 │   ├── aws-ecs-fargate/       # AWS ECS Fargateデプロイ例（実装済み）
-│   └── gcp-cloud-run/         # GCP Cloud Runデプロイ例（予定）
+│   └── gcp-cloud-run/         # GCP Cloud Runデプロイ例（実装済み）
 ├── test/                      # テストコード
 │   ├── aws/                   # AWS関連テスト（実装済み）
+│   ├── gcp/                   # GCP関連テスト（実装済み）
 │   └── tmp/                   # テスト一時ファイル
 ├── docs/                      # ドキュメント（予定）
 ├── README.md                  # プロジェクト概要
@@ -38,11 +40,16 @@ Kiro-style Spec Driven Developmentのための構造化されたディレクト�
 │   ├── tech.md               # 技術スタック
 │   └── structure.md          # このファイル
 └── specs/                    # 機能別の仕様書
-    └── ecs-fargate-implementation/  # AWS ECS Fargate Bridge実装（実装済み）
+    ├── ecs-fargate-implementation/  # AWS ECS Fargate Bridge実装（実装済み）
+    │   ├── spec.json         # スペックメタデータ
+    │   ├── requirements.md   # 要件定義（承認済み）
+    │   ├── design.md         # 技術設計（承認済み）
+    │   └── tasks.md          # 実装タスク（100%完了）
+    └── cloud-run-infrastructure/    # GCP Cloud Run Bridge実装（実装済み）
         ├── spec.json         # スペックメタデータ
         ├── requirements.md   # 要件定義（承認済み）
         ├── design.md         # 技術設計（承認済み）
-        └── tasks.md          # 実装タスク（100%完了）
+        └── tasks.md          # 実装タスク（進行中）
 ```
 
 ### `modules/` ディレクトリ
@@ -63,8 +70,16 @@ modules/
 │       ├── outputs.tf        # 出力値（10出力）
 │       ├── versions.tf       # プロバイダーバージョン（Terraform >= 1.0, AWS ~> 5.0）
 │       └── README.md         # モジュールドキュメント
-└── gcp/                      # GCPモジュール（予定）
-    └── cloud-run/            # Cloud Runモジュール
+└── gcp/                      # GCPモジュール
+    └── cloud-run/            # Cloud Runモジュール（実装済み）
+        ├── main.tf           # 空（機能別ファイル分割パターンのため）
+        ├── cloud_run.tf      # Cloud Run v2サービス、サービスアカウント、IAMロール
+        ├── load_balancer.tf  # Cloud Load Balancer、SSL証明書、Cloud Armor
+        ├── dns.tf            # Cloud DNS Aレコード
+        ├── variables.tf      # 入力変数（21変数）
+        ├── outputs.tf        # 出力値（10出力）
+        ├── versions.tf       # プロバイダーバージョン（Terraform >= 1.0, Google ~> 5.0）
+        └── README.md         # モジュールドキュメント
 ```
 
 ### `examples/` ディレクトリ
@@ -89,12 +104,17 @@ examples/
 │   │   └── init.sql          # RDS初期化SQL
 │   ├── certs/                # 証明書ファイル（.gitignore対象）
 │   └── README.md             # デプロイ手順
-└── gcp-cloud-run/            # 予定
-    ├── main.tf
-    ├── variables.tf
-    ├── outputs.tf
-    ├── terraform.tfvars.example
-    └── README.md
+└── gcp-cloud-run/            # 実装済み
+    ├── main.tf               # モジュールの使用例
+    ├── network.tf            # VPCネットワーク、サブネット、VPCピアリング
+    ├── cloud_sql.tf          # Cloud SQLインスタンス、データベース、ユーザー
+    ├── dns.tf                # Cloud DNS Managed Zone参照
+    ├── variables.tf          # カスタマイズ可能な変数
+    ├── outputs.tf            # 出力例
+    ├── terraform.tfvars.example  # 設定例
+    ├── scripts/              # ユーティリティスクリプト
+    │   └── init.sql          # Cloud SQL初期化SQL
+    └── README.md             # デプロイ手順
 ```
 
 ### `test/` ディレクトリ
@@ -106,13 +126,15 @@ test/
 ├── aws/
 │   ├── ecs_fargate_test.go   # Terratestによる統合テスト（実装済み）
 │   └── README.md             # test/README.mdへのリダイレクト
+├── gcp/
+│   └── cloud_run_test.go     # Terratestによる統合テスト（実装済み）
 ├── tmp/                      # テスト実行時の一時ファイル
 ├── go.mod                    # Go module定義
 ├── go.sum                    # Go module依存関係
-└── README.md                 # 統合テスト実行手順（統合ドキュメント）
+└── README.md                 # 統合テスト実行手順（AWS/GCP両方を含む）
 ```
 
-**注**: test/README.mdはtest/aws/README.mdの内容を統合し、すべてのテスト関連ドキュメントを1箇所に集約しています。test/aws/README.mdは親ディレクトリへのリダイレクトとなっています。
+**注**: test/README.mdは、AWSとGCP両方のテスト関連ドキュメントを1箇所に集約しています。各テストディレクトリ（test/aws/、test/gcp/）には個別のREADMEは配置せず、すべてtest/README.mdに統合されています。
 
 ## コード構成パターン
 
@@ -166,13 +188,24 @@ examples/aws-ecs-fargateの追加ファイル：
 ### Terraformファイル
 
 - **スネークケース**: すべて小文字、単語間はアンダースコア（例: `ecs_fargate.tf`）
-- **機能別ファイル分割**: 大きなモジュールは機能ごとにファイルを分割（modules/aws/ecs-fargateで採用）
+- **機能別ファイル分割**: 大きなモジュールは機能ごとにファイルを分割（AWS/GCP両方で採用）
+
+  **AWS ECS Fargateモジュール（modules/aws/ecs-fargate）**:
   - `main.tf`: 空（ファイル分割パターンのため、他ファイルに実装を配置）
   - `ecs.tf`: ECSクラスター、サービス、タスク定義、データソース（aws_region）
   - `alb.tf`: ALB、ターゲットグループ、HTTPリスナー（条件付き）、HTTPSリスナー（条件付き）
   - `security_groups.tf`: ALBとBridge用セキュリティグループ、HTTP/HTTPSルール（条件付き）
   - `iam.tf`: タスク実行ロール、タスクロール、IAMポリシーアタッチメント
   - `logs.tf`: CloudWatch Logsロググループ
+
+  **GCP Cloud Runモジュール（modules/gcp/cloud-run）**:
+  - `main.tf`: 空（ファイル分割パターンのため、他ファイルに実装を配置）
+  - `cloud_run.tf`: Cloud Run v2サービス、サービスアカウント、IAMロールバインディング
+  - `load_balancer.tf`: Cloud Load Balancer、Serverless NEG、Backend Service、SSL証明書、Cloud Armor
+  - `dns.tf`: Cloud DNS Aレコード
+  - `versions.tf`: プロバイダーバージョン制約
+  - `variables.tf`: 入力変数
+  - `outputs.tf`: 出力値
 
 ### ディレクトリ
 

@@ -1,0 +1,86 @@
+# ========================================
+# GCP Project Configuration
+# ========================================
+# GCPプロジェクトIDとリージョンを設定してください
+
+project_id = "your-gcp-project-id"
+region     = "asia-northeast1"
+
+# ========================================
+# Service Name
+# ========================================
+# すべてのリソースに使用されるサービス名プレフィックス
+
+service_name = "basemachina-bridge-example"
+
+# ========================================
+# Bridge Configuration
+# ========================================
+# BaseMachinaから提供されたテナントIDを設定してください
+
+tenant_id = "your-tenant-id"
+
+# 公開鍵の取得間隔とタイムアウト
+fetch_interval = "1h"
+fetch_timeout  = "10s"
+
+# Bridgeコンテナのポート（4321以外）
+port = 8080
+
+# ========================================
+# Resource Configuration
+# ========================================
+# Cloud Runサービスのリソース設定
+# 注意: コンテナイメージはgcr.io/basemachina/bridge:latestに固定されています
+
+cpu           = "1"
+memory        = "512Mi"
+min_instances = 0
+max_instances = 10
+
+# ========================================
+# VPC Network Configuration
+# ========================================
+# VPC Egressの設定（ALL_TRAFFIC または PRIVATE_RANGES_ONLY）
+
+vpc_egress = "PRIVATE_RANGES_ONLY"
+
+# ========================================
+# Domain and HTTPS Configuration
+# ========================================
+# カスタムドメインを使用する場合は、以下を設定してください
+# HTTPSを使用しない場合は、domain_nameをnullのままにしてください
+
+# domain_name            = "bridge.example.com"
+# enable_https_redirect  = true
+# enable_cloud_armor     = true
+#
+# 追加で許可するIPアドレス範囲（BaseMachina IP 34.85.43.93/32は常に許可されます）
+# allowed_ip_ranges      = ["203.0.113.0/24"]
+
+# ========================================
+# Cloud DNS Configuration
+# ========================================
+# 既存のCloud DNS Managed Zoneを使用する場合は、以下を設定してください
+# Managed Zoneはあらかじめ作成しておく必要があります
+
+# dns_zone_name = "example-com"
+
+# ========================================
+# Cloud SQL Configuration
+# ========================================
+# データベース名とユーザー名
+
+database_name = "sampledb"
+database_user = "dbuser"
+
+# ========================================
+# Labels
+# ========================================
+# すべてのリソースに適用されるラベル
+
+labels = {
+  environment = "example"
+  managed_by  = "terraform"
+  team        = "platform"
+}
