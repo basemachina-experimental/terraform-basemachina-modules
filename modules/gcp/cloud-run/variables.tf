@@ -136,7 +136,7 @@ variable "enable_cloud_armor" {
 }
 
 variable "allowed_ip_ranges" {
-  description = "Additional IP ranges allowed to access the service (34.85.43.93/32 is always included)"
+  description = "Additional IP ranges allowed to access the service. BaseMachina IP (34.85.43.93/32) is automatically included unless '*' is specified to allow all IPs."
   type        = list(string)
   default     = []
 }

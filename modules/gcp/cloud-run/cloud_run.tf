@@ -122,3 +122,17 @@ resource "google_cloud_run_v2_service" "bridge" {
   # ラベル
   labels = var.labels
 }
+
+# ========================================
+# Cloud Run IAM Policy
+# ========================================
+# Load BalancerからCloud Runへのアクセスを許可
+# Cloud Armorでアクセス制御を行うため、allUsersにInvoker権限を付与
+
+resource "google_cloud_run_v2_service_iam_member" "invoker" {
+  name     = google_cloud_run_v2_service.bridge.name
+  location = google_cloud_run_v2_service.bridge.location
+  project  = var.project_id
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}

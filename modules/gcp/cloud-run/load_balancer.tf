@@ -5,6 +5,22 @@
 # Cloud RunサービスへのHTTPS/HTTPトラフィックをルーティング
 
 # ========================================
+# Local Variables
+# ========================================
+# Cloud Armor IP範囲の計算
+# - "*" が指定されている場合は ["*"] のみ使用
+# - それ以外の場合は BaseMachina IP (34.85.43.93/32) を自動追加
+
+locals {
+  # "*" が含まれているかチェック
+  has_wildcard = contains(var.allowed_ip_ranges, "*")
+
+  # Cloud Armor用のIP範囲を計算
+  # "*" が指定されている場合は ["*"] のみ、それ以外はBaseMachina IPを追加
+  cloud_armor_ip_ranges = local.has_wildcard ? ["*"] : concat(["34.85.43.93/32"], var.allowed_ip_ranges)
+}
+
+# ========================================
 # Global External IP Address
 # ========================================
 # Load Balancer用の静的外部IPアドレスを予約
@@ -70,23 +86,27 @@ resource "google_compute_security_policy" "default" {
   name    = "${var.service_name}-policy"
   project = var.project_id
 
-  # BaseMachinaからのアクセスを許可（常に34.85.43.93/32を含む）
-  rule {
-    action   = "allow"
-    priority = 1000
-    match {
-      versioned_expr = "SRC_IPS_V1"
-      config {
-        # BaseMachina IP (34.85.43.93/32) is always included
-        src_ip_ranges = concat(["34.85.43.93/32"], var.allowed_ip_ranges)
+  # 特定IPからのアクセスを許可（ワイルドカード以外の場合のみ）
+  # BaseMachina IP (34.85.43.93/32) はデフォルトで含まれる
+  dynamic "rule" {
+    for_each = local.has_wildcard ? [] : [1]
+    content {
+      action   = "allow"
+      priority = 1000
+      match {
+        versioned_expr = "SRC_IPS_V1"
+        config {
+          src_ip_ranges = local.cloud_armor_ip_ranges
+        }
       }
+      description = "Allow access from BaseMachina (34.85.43.93/32) and additional IPs"
     }
-    description = "Allow access from BaseMachina (34.85.43.93/32) and additional IPs"
   }
 
-  # デフォルトで拒否
+  # デフォルトルール（必須 - 優先度2147483647）
+  # "*" が指定された場合は全て許可、それ以外は拒否
   rule {
-    action   = "deny(403)"
+    action   = local.has_wildcard ? "allow" : "deny(403)"
     priority = 2147483647
     match {
       versioned_expr = "SRC_IPS_V1"
@@ -94,7 +114,7 @@ resource "google_compute_security_policy" "default" {
         src_ip_ranges = ["*"]
       }
     }
-    description = "Default deny rule"
+    description = local.has_wildcard ? "Default allow all IPs" : "Default deny all other IPs"
   }
 }
 
