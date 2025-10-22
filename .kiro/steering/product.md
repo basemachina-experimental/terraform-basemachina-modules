@@ -6,7 +6,7 @@ BaseMachina Bridge Terraform Modulesは、BaseMachinaのbridgeをお客様のク
 
 ## 主要機能
 
-- **マルチクラウド対応**: AWS（ECS Fargate）とGoogle Cloud（Cloud Run）をサポート（AWS完全実装済み、GCPは予定）
+- **マルチクラウド対応**: AWS（ECS Fargate）とGoogle Cloud（Cloud Run）をサポート（両方実装済み）
 - **簡単なデプロイ**: Terraformモジュールを使って、bridgeのインフラストラクチャを自動的にプロビジョニング
 - **セキュアなアクセス**: 認証機能付きゲートウェイとして、BaseMachinaからお客様のデータソースへの安全なアクセスを提供
 - **ヘルスチェック機能**: `/ok`エンドポイントによる監視とヘルスチェック
