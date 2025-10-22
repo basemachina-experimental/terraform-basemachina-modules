@@ -21,3 +21,7 @@ examples/aws-ecs-fargate/certs/
 *.pem
 *.key
 *.crt
+
+.kiro/settings.json    
+.kiro/cache/          
+*.log                 
