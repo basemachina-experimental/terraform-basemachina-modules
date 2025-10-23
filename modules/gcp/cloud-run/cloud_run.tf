@@ -58,7 +58,7 @@ resource "google_cloud_run_v2_service" "bridge" {
     # コンテナ設定
     containers {
       # Bridgeコンテナイメージ（gcr.io固定）
-      image = "gcr.io/basemachina/bridge:latest"
+      image = "gcr.io/basemachina/bridge:${var.bridge_image_tag}"
 
       # Bridge環境変数
       env {

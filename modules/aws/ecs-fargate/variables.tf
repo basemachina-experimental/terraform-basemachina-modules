@@ -85,6 +85,12 @@ variable "tenant_id" {
 # リソース設定変数
 # ========================================
 
+variable "bridge_image_tag" {
+  description = "Bridge container image tag (default: latest). Specify a specific version like 'v1.0.0' if needed."
+  type        = string
+  default     = "latest"
+}
+
 variable "cpu" {
   description = "CPU units for ECS task (256, 512, 1024, 2048, 4096)"
   type        = number

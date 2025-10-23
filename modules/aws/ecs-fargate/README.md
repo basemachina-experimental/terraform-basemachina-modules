@@ -38,6 +38,7 @@ module "bridge" {
   cpu            = 256
   memory         = 512
   desired_count  = 1
+  # bridge_image_tag = "v1.0.0"  # オプション: 特定バージョンを指定（デフォルト: latest）
 
   # カスタムドメイン設定（必須）
   domain_name      = "bridge.example.com"
@@ -193,6 +194,7 @@ No modules.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_additional_alb_ingress_cidrs"></a> [additional\_alb\_ingress\_cidrs](#input\_additional\_alb\_ingress\_cidrs) | Additional CIDR blocks to allow HTTPS access to ALB (for testing or additional clients). BaseMachina IP (34.85.43.93/32) is always included. | `list(string)` | `[]` | no |
+| <a name="input_bridge_image_tag"></a> [bridge\_image\_tag](#input\_bridge\_image\_tag) | Bridge container image tag (default: latest). Specify a specific version like 'v1.0.0' if needed. | `string` | `"latest"` | no |
 | <a name="input_certificate_arn"></a> [certificate\_arn](#input\_certificate\_arn) | ACM certificate ARN for HTTPS listener (required) | `string` | n/a | yes |
 | <a name="input_cpu"></a> [cpu](#input\_cpu) | CPU units for ECS task (256, 512, 1024, 2048, 4096) | `number` | `256` | no |
 | <a name="input_desired_count"></a> [desired\_count](#input\_desired\_count) | Number of ECS tasks to run | `number` | `1` | no |

@@ -63,6 +63,7 @@ module "bridge" {
   tenant_id      = "your-tenant-id"
   fetch_interval = "1h"
   fetch_timeout  = "10s"
+  # bridge_image_tag = "v1.0.0"  # オプション: 特定バージョンを指定（デフォルト: latest）
 
   name_prefix = "prod"
 }
@@ -94,6 +95,7 @@ module "bridge" {
   tenant_id      = "your-tenant-id"
   fetch_interval = "1h"
   fetch_timeout  = "10s"
+  # bridge_image_tag = "v1.0.0"  # オプション: 特定バージョンを指定（デフォルト: latest）
 
   # カスタムドメイン設定（オプション）
   domain_name   = "bridge.example.com"

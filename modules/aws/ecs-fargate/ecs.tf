@@ -48,7 +48,7 @@ resource "aws_ecs_task_definition" "bridge" {
   container_definitions = jsonencode([
     {
       name  = "bridge"
-      image = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com/ecr-public/basemachina/bridge:latest"
+      image = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com/ecr-public/basemachina/bridge:${var.bridge_image_tag}"
 
       portMappings = [
         {

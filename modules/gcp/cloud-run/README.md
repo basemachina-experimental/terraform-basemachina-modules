@@ -106,6 +106,7 @@ module "basemachina_bridge" {
   memory       = "1Gi"
   min_instances = 1
   max_instances = 20
+  # bridge_image_tag = "v1.0.0"  # オプション: 特定バージョンを指定（デフォルト: latest）
 
   # ラベル
   labels = {
@@ -183,6 +184,7 @@ No modules.
 | Name | Type |
 |------|------|
 | [google_cloud_run_v2_service.bridge](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/cloud_run_v2_service) | resource |
+| [google_cloud_run_v2_service_iam_member.invoker](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/cloud_run_v2_service_iam_member) | resource |
 | [google_compute_backend_service.default](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_backend_service) | resource |
 | [google_compute_global_address.default](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_global_address) | resource |
 | [google_compute_global_forwarding_rule.http](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_global_forwarding_rule) | resource |
@@ -204,7 +206,8 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_allowed_ip_ranges"></a> [allowed\_ip\_ranges](#input\_allowed\_ip\_ranges) | IP ranges allowed to access the service (BaseMachina IP is always included) | `list(string)` | <pre>[<br/>  "34.85.43.93/32"<br/>]</pre> | no |
+| <a name="input_allowed_ip_ranges"></a> [allowed\_ip\_ranges](#input\_allowed\_ip\_ranges) | Additional IP ranges allowed to access the service. BaseMachina IP (34.85.43.93/32) is automatically included unless '*' is specified to allow all IPs. | `list(string)` | `[]` | no |
+| <a name="input_bridge_image_tag"></a> [bridge\_image\_tag](#input\_bridge\_image\_tag) | Bridge container image tag (default: latest). Specify a specific version like 'v1.0.0' if needed. | `string` | `"latest"` | no |
 | <a name="input_cpu"></a> [cpu](#input\_cpu) | CPU allocation for Cloud Run service (e.g., '1', '2', '4') | `string` | `"1"` | no |
 | <a name="input_dns_zone_name"></a> [dns\_zone\_name](#input\_dns\_zone\_name) | Cloud DNS Managed Zone name (optional, required for DNS record creation) | `string` | `null` | no |
 | <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | Custom domain name for the Bridge (optional, required for HTTPS) | `string` | `null` | no |

@@ -56,6 +56,12 @@ variable "port" {
 # リソース設定
 # ========================================
 
+variable "bridge_image_tag" {
+  description = "Bridge container image tag (default: latest). Specify a specific version like 'v1.0.0' if needed."
+  type        = string
+  default     = "latest"
+}
+
 variable "cpu" {
   description = "CPU allocation for Cloud Run service (e.g., '1', '2', '4')"
   type        = string
